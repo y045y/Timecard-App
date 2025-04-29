@@ -1,5 +1,3 @@
-// routes/selfReports.js
-
 const express = require("express");
 const router = express.Router();
 const SelfReportStore = require("../stores/selfReportStore");
@@ -31,15 +29,13 @@ router.put("/:id", async (req, res) => {
   try {
     const report = {
       id: parseInt(req.params.id, 10),
-      overtime_hours: req.body.overtime_hours,
-      paid_leave_days: req.body.paid_leave_days,
-      holiday_work_count: req.body.holiday_work_count,
-      holiday_work_hours: req.body.holiday_work_hours, // ★ 追加
-      late_count: req.body.late_count,
-      late_hours: req.body.late_hours, // ★ 追加
-      early_leave_count: req.body.early_leave_count,
-      early_leave_hours: req.body.early_leave_hours, // ★ 追加
-      note: req.body.note,
+      holiday_work_count: req.body.holiday_work_count || "0",
+      holiday_work_hours: parseFloat(req.body.holiday_work_hours) || 0,
+      late_count: req.body.late_count || "0",
+      late_hours: parseFloat(req.body.late_hours) || 0,
+      early_leave_count: req.body.early_leave_count || "0",
+      early_leave_hours: parseFloat(req.body.early_leave_hours) || 0,
+      note: req.body.note || "",
     };
     await SelfReportStore.update(report);
     res.send("✅ Self report updated");

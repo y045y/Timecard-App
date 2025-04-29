@@ -1,5 +1,3 @@
-// routes/attendanceRecords.js
-
 const express = require("express");
 const router = express.Router();
 const AttendanceRecordStore = require("../stores/attendanceRecordStore");
@@ -38,7 +36,7 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// PUT: 勤怠レコード更新
+// PUT: 勤怠レコード更新（明細のみ）
 router.put("/:id", async (req, res) => {
   try {
     const record = {
@@ -47,18 +45,12 @@ router.put("/:id", async (req, res) => {
       end_time: req.body.end_time,
       overtime_hours: req.body.overtime_hours,
       paid_leave_days: req.body.paid_leave_days,
-      holiday_work_count: req.body.holiday_work_count,
-      holiday_work_hours: req.body.holiday_work_hours, // ★ ← これが抜けてた
-      late_count: req.body.late_count,
-      late_hours: req.body.late_hours, // ★ ← これも抜けてた
-      early_leave_count: req.body.early_leave_count,
-      early_leave_hours: req.body.early_leave_hours, // ★ ← これも抜けてた
       note: req.body.note,
     };
     await AttendanceRecordStore.update(record);
-    res.send("✅ 勤怠情報 更新完了");
+    res.send("✅ 勤怠情報（明細）更新完了");
   } catch (err) {
-    console.error("❌ 勤怠情報 更新失敗:", err);
+    console.error("❌ 勤怠情報（明細）更新失敗:", err);
     res.status(500).send("サーバーエラー");
   }
 });

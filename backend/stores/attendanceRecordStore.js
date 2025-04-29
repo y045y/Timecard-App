@@ -22,7 +22,7 @@ const AttendanceRecordStore = {
     return result.recordset;
   },
 
-  // 追加
+  // 追加（出勤記録）
   async insert(record) {
     const pool = await poolPromise;
     await pool
@@ -31,10 +31,10 @@ const AttendanceRecordStore = {
       .input("attendance_date", record.attendance_date)
       .input("start_time", record.start_time || null)
       .input("end_time", record.end_time || null)
-      .execute("sp_InsertAttendanceRecord"); // ✅ statusは削除されているから渡さない
+      .execute("sp_InsertAttendanceRecord");
   },
 
-  // 更新
+  // 明細だけの更新（合計には触れない）
   async update(record) {
     const pool = await poolPromise;
     await pool
@@ -44,14 +44,8 @@ const AttendanceRecordStore = {
       .input("EndTime", record.end_time || "")
       .input("OvertimeHours", parseFloat(record.overtime_hours) || 0)
       .input("PaidLeaveDays", parseFloat(record.paid_leave_days) || 0)
-      .input("HolidayWorkCount", record.holiday_work_count || "0")
-      .input("HolidayWorkHours", parseFloat(record.holiday_work_hours) || 0)
-      .input("LateCount", record.late_count || "0")
-      .input("LateHours", parseFloat(record.late_hours) || 0)
-      .input("EarlyLeaveCount", record.early_leave_count || "0")
-      .input("EarlyLeaveHours", parseFloat(record.early_leave_hours) || 0)
       .input("Note", record.note || "")
-      .execute("sp_UpdateAttendanceRecord");
+      .execute("sp_UpdateAttendanceRecordSimple");
   },
 
   // 削除

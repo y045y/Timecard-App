@@ -58,9 +58,7 @@ const AdminAttendancePage = () => {
   };
 
   const userNames = [
-    ...new Set(
-      (attendanceRecords || []).map((r) => r.user_name).filter(Boolean)
-    ),
+    ...new Set(attendanceRecords.map((r) => r.user_name).filter(Boolean)),
   ];
 
   const handleInputChange = (id, field, value) => {
@@ -117,9 +115,13 @@ const AdminAttendancePage = () => {
   const saveSummary = async (summary) => {
     try {
       const payload = {
-        ...summary,
-        total_overtime_hours: parseFloat(summary.total_overtime_hours) || 0,
-        total_paid_leave_days: parseFloat(summary.total_paid_leave_days) || 0,
+        holiday_work_count: summary.total_holiday_work_count || "0",
+        holiday_work_hours: parseFloat(summary.total_holiday_work_hours) || 0,
+        late_count: summary.total_late_count || "0",
+        late_hours: parseFloat(summary.total_late_hours) || 0,
+        early_leave_count: summary.total_early_leave_count || "0",
+        early_leave_hours: parseFloat(summary.total_early_leave_hours) || 0,
+        note: summary.note || "",
       };
       await axios.put(
         `http://localhost:5000/api/self-reports/${summary.id}`,
@@ -135,7 +137,6 @@ const AdminAttendancePage = () => {
   return (
     <div className="container mt-4">
       <h2 className="text-center mb-4">勤怠管理者画面（{baseMonth}）</h2>
-
       <div className="text-center mb-4">
         <button
           className="btn btn-outline-primary mx-1"
@@ -279,6 +280,7 @@ const AdminAttendancePage = () => {
                   <th>休日出勤(回/時間)</th>
                   <th>遅刻(回/時間)</th>
                   <th>早退(回/時間)</th>
+                  <th>備考</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -364,6 +366,16 @@ const AdminAttendancePage = () => {
                               "total_early_leave_count",
                               e.target.value
                             )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={sum.note ?? ""}
+                          onChange={(e) =>
+                            handleSummaryChange(sum.id, "note", e.target.value)
                           }
                         />
                       </td>
