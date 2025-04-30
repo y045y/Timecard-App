@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 
 const TimecardPage = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -13,17 +14,37 @@ const TimecardPage = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const handleStart = () => {
+  const handleStart = async () => {
     if (status === "未出勤") {
-      setStartTime(new Date());
+      const now = new Date();
+      setStartTime(now);
       setStatus("出勤中");
+
+      await axios.post(
+        "http://localhost:5000/api/attendance-records/punch-in",
+        {
+          user_id: 1,
+          attendance_date: now,
+          start_time: now,
+        }
+      );
     }
   };
 
-  const handleEnd = () => {
+  const handleEnd = async () => {
     if (status === "出勤中") {
-      setEndTime(new Date());
+      const now = new Date();
+      setEndTime(now);
       setStatus("退勤済み");
+
+      await axios.put(
+        "http://localhost:5000/api/attendance-records/punch-out",
+        {
+          user_id: 1,
+          attendance_date: now,
+          end_time: now,
+        }
+      );
     }
   };
 

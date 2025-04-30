@@ -29,12 +29,14 @@ router.put("/:id", async (req, res) => {
   try {
     const report = {
       id: parseInt(req.params.id, 10),
-      holiday_work_count: req.body.holiday_work_count || "0",
+      holiday_work_count: parseFloat(req.body.holiday_work_count) || 0,
       holiday_work_hours: parseFloat(req.body.holiday_work_hours) || 0,
-      late_count: req.body.late_count || "0",
+      late_count: parseFloat(req.body.late_count) || 0,
       late_hours: parseFloat(req.body.late_hours) || 0,
-      early_leave_count: req.body.early_leave_count || "0",
+      early_leave_count: parseFloat(req.body.early_leave_count) || 0,
       early_leave_hours: parseFloat(req.body.early_leave_hours) || 0,
+      total_overtime_hours: parseFloat(req.body.total_overtime_hours) || 0,
+      total_paid_leave_days: parseFloat(req.body.total_paid_leave_days) || 0,
       note: req.body.note || "",
     };
     await SelfReportStore.update(report);

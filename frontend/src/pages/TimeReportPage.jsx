@@ -29,9 +29,12 @@ const TimeReportPage = () => {
   );
 
   const [summary, setSummary] = useState({
-    holidayWork: "",
-    late: "",
-    earlyLeave: "",
+    holidayWorkCount: "",
+    holidayWorkHours: "",
+    lateCount: "",
+    lateHours: "",
+    earlyLeaveCount: "",
+    earlyLeaveHours: "",
     summaryNote: "",
   });
 
@@ -47,7 +50,11 @@ const TimeReportPage = () => {
 
   const handleSubmit = () => {
     console.log("提出された勤怠データ:", attendanceData);
-    console.log("提出された合計欄データ:", summary);
+    console.log("提出された合計欄データ:", {
+      ...summary,
+      totalOvertimeHours: overtimeSum,
+      totalPaidLeaveDays: paidLeaveSum,
+    });
     alert("申請しました！（仮）");
   };
 
@@ -68,26 +75,23 @@ const TimeReportPage = () => {
     const weekday = weekdays[date.getDay()];
     return `${month}/${day} (${weekday})`;
   };
-
-  // --- ここからスタイルまとめて小型化 ---
-  const compactInputStyle = {
-    fontWeight: "bold",
-    width: "55px",
-    margin: "auto",
-    height: "28px",
-    fontSize: "12px",
-    padding: "2px 6px",
-  };
+  // const compactInputStyle = {
+  //   fontWeight: "bold",
+  //   width: "55px",
+  //   margin: "0 auto", // ← ここを修正
+  //   height: "28px",
+  //   fontSize: "12px",
+  //   padding: "2px 6px",
+  // };
 
   const compactSelectStyle = {
     fontWeight: "bold",
     width: "55px",
-    margin: "auto",
+    margin: "0 auto", // ← ここも
     height: "28px",
     fontSize: "12px",
     padding: "2px 6px",
   };
-
   const freeInputStyle = {
     backgroundColor: "#fff9c4",
     border: "2px solid #007bff",
@@ -100,7 +104,6 @@ const TimeReportPage = () => {
   const tableCellStyle = {
     padding: "4px 8px",
   };
-  // --- スタイルここまで ---
 
   return (
     <div className="container mt-5">
@@ -138,16 +141,23 @@ const TimeReportPage = () => {
                       {row.endTime || "--:--"}
                     </td>
                     <td style={{ backgroundColor, ...tableCellStyle }}>
-                      <input
-                        type="text"
-                        className="form-control text-center"
-                        style={compactInputStyle}
+                      <select
+                        className="form-select text-center"
+                        style={compactSelectStyle}
                         value={row.overtime}
                         onChange={(e) =>
                           handleChange(index, "overtime", e.target.value)
                         }
-                        placeholder="h"
-                      />
+                      >
+                        {[...Array(21)].map((_, i) => {
+                          const value = (i * 0.5).toFixed(1);
+                          return (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          );
+                        })}
+                      </select>
                     </td>
                     <td style={{ backgroundColor, ...tableCellStyle }}>
                       <select
@@ -205,38 +215,112 @@ const TimeReportPage = () => {
             <tr>
               <th style={tableCellStyle}>休日出勤（回／時）</th>
               <td style={tableCellStyle}>
-                <input
-                  className="form-control"
-                  style={{ ...freeInputStyle, width: "100%" }}
-                  value={summary.holidayWork}
-                  onChange={(e) =>
-                    handleSummaryChange("holidayWork", e.target.value)
-                  }
-                />
+                <div className="row gx-1">
+                  <div className="col">
+                    <select
+                      className="form-select"
+                      value={summary.holidayWorkCount}
+                      onChange={(e) =>
+                        handleSummaryChange("holidayWorkCount", e.target.value)
+                      }
+                    >
+                      {[...Array(11)].map((_, i) => {
+                        const value = (i * 0.5).toFixed(1);
+                        return (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div className="col">
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="form-control"
+                      placeholder="h"
+                      value={summary.holidayWorkHours}
+                      onChange={(e) =>
+                        handleSummaryChange("holidayWorkHours", e.target.value)
+                      }
+                    />
+                  </div>
+                </div>
               </td>
             </tr>
             <tr>
               <th style={tableCellStyle}>遅刻（回／時）</th>
               <td style={tableCellStyle}>
-                <input
-                  className="form-control"
-                  style={{ ...freeInputStyle, width: "100%" }}
-                  value={summary.late}
-                  onChange={(e) => handleSummaryChange("late", e.target.value)}
-                />
+                <div className="row gx-1">
+                  <div className="col">
+                    <select
+                      className="form-select"
+                      value={summary.lateCount}
+                      onChange={(e) =>
+                        handleSummaryChange("lateCount", e.target.value)
+                      }
+                    >
+                      {[...Array(11)].map((_, i) => {
+                        const value = (i * 0.5).toFixed(1);
+                        return (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div className="col">
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="form-control"
+                      placeholder="h"
+                      value={summary.lateHours}
+                      onChange={(e) =>
+                        handleSummaryChange("lateHours", e.target.value)
+                      }
+                    />
+                  </div>
+                </div>
               </td>
             </tr>
             <tr>
               <th style={tableCellStyle}>早退（回／時）</th>
               <td style={tableCellStyle}>
-                <input
-                  className="form-control"
-                  style={{ ...freeInputStyle, width: "100%" }}
-                  value={summary.earlyLeave}
-                  onChange={(e) =>
-                    handleSummaryChange("earlyLeave", e.target.value)
-                  }
-                />
+                <div className="row gx-1">
+                  <div className="col">
+                    <select
+                      className="form-select"
+                      value={summary.earlyLeaveCount}
+                      onChange={(e) =>
+                        handleSummaryChange("earlyLeaveCount", e.target.value)
+                      }
+                    >
+                      {[...Array(11)].map((_, i) => {
+                        const value = (i * 0.5).toFixed(1);
+                        return (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div className="col">
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="form-control"
+                      placeholder="h"
+                      value={summary.earlyLeaveHours}
+                      onChange={(e) =>
+                        handleSummaryChange("earlyLeaveHours", e.target.value)
+                      }
+                    />
+                  </div>
+                </div>
               </td>
             </tr>
             <tr>

@@ -1,4 +1,5 @@
 const { poolPromise } = require("../config/db");
+const sql = require("mssql");
 
 const SelfReportStore = {
   // 全件取得
@@ -38,22 +39,40 @@ const SelfReportStore = {
     const pool = await poolPromise;
     await pool
       .request()
-      .input("id", report.id)
+      .input("Id", sql.Int, report.id)
       .input(
-        "total_overtime_hours",
+        "HolidayWorkCount",
+        sql.Float,
+        parseFloat(report.holiday_work_count) || 0
+      )
+      .input(
+        "HolidayWorkHours",
+        sql.Float,
+        parseFloat(report.holiday_work_hours) || 0
+      )
+      .input("LateCount", sql.Float, parseFloat(report.late_count) || 0)
+      .input("LateHours", sql.Float, parseFloat(report.late_hours) || 0)
+      .input(
+        "EarlyLeaveCount",
+        sql.Float,
+        parseFloat(report.early_leave_count) || 0
+      )
+      .input(
+        "EarlyLeaveHours",
+        sql.Float,
+        parseFloat(report.early_leave_hours) || 0
+      )
+      .input("Note", sql.NVarChar, report.note || "")
+      .input(
+        "TotalOvertimeHours",
+        sql.Float,
         parseFloat(report.total_overtime_hours) || 0
       )
       .input(
-        "total_paid_leave_days",
+        "TotalPaidLeaveDays",
+        sql.Float,
         parseFloat(report.total_paid_leave_days) || 0
       )
-      .input("holiday_work_count", report.holiday_work_count || "0")
-      .input("holiday_work_hours", parseFloat(report.holiday_work_hours) || 0)
-      .input("late_count", report.late_count || "0")
-      .input("late_hours", parseFloat(report.late_hours) || 0)
-      .input("early_leave_count", report.early_leave_count || "0")
-      .input("early_leave_hours", parseFloat(report.early_leave_hours) || 0)
-      .input("note", report.note || "")
       .execute("sp_UpdateSelfReport");
   },
 

@@ -115,11 +115,13 @@ const AdminAttendancePage = () => {
   const saveSummary = async (summary) => {
     try {
       const payload = {
-        holiday_work_count: summary.total_holiday_work_count || "0",
+        total_overtime_hours: parseFloat(summary.total_overtime_hours) || 0,
+        total_paid_leave_days: parseFloat(summary.total_paid_leave_days) || 0,
+        holiday_work_count: parseFloat(summary.total_holiday_work_count) || 0,
         holiday_work_hours: parseFloat(summary.total_holiday_work_hours) || 0,
-        late_count: summary.total_late_count || "0",
+        late_count: parseFloat(summary.total_late_count) || 0,
         late_hours: parseFloat(summary.total_late_hours) || 0,
-        early_leave_count: summary.total_early_leave_count || "0",
+        early_leave_count: parseFloat(summary.total_early_leave_count) || 0,
         early_leave_hours: parseFloat(summary.total_early_leave_hours) || 0,
         note: summary.note || "",
       };
@@ -158,7 +160,6 @@ const AdminAttendancePage = () => {
       {userNames.map((user) => (
         <div key={`user-${user}`} className="mb-5">
           <h4 className="mb-3">{user}</h4>
-
           {/* 明細テーブル */}
           <div className="table-responsive mb-3">
             <table className="table table-bordered text-center">
@@ -213,7 +214,10 @@ const AdminAttendancePage = () => {
                           step="0.1"
                           className="form-control"
                           value={
-                            isNaN(rec.overtime_hours) ? "" : rec.overtime_hours
+                            isNaN(rec.overtime_hours) ||
+                            rec.overtime_hours === null
+                              ? 0
+                              : rec.overtime_hours
                           }
                           onChange={(e) =>
                             handleInputChange(
@@ -228,8 +232,9 @@ const AdminAttendancePage = () => {
                         <select
                           className="form-select"
                           value={
-                            isNaN(rec.paid_leave_days)
-                              ? ""
+                            isNaN(rec.paid_leave_days) ||
+                            rec.paid_leave_days === null
+                              ? "0"
                               : rec.paid_leave_days
                           }
                           onChange={(e) =>
@@ -289,6 +294,7 @@ const AdminAttendancePage = () => {
                   .filter((sum) => sum.user_name === user)
                   .map((sum) => (
                     <tr key={`summary-${sum.id ?? sum.report_month}`}>
+                      {/* 残業合計 */}
                       <td>
                         <input
                           type="number"
@@ -296,7 +302,7 @@ const AdminAttendancePage = () => {
                           className="form-control"
                           value={
                             isNaN(sum.total_overtime_hours)
-                              ? ""
+                              ? 0
                               : sum.total_overtime_hours
                           }
                           onChange={(e) =>
@@ -308,6 +314,8 @@ const AdminAttendancePage = () => {
                           }
                         />
                       </td>
+
+                      {/* 有給合計 */}
                       <td>
                         <input
                           type="number"
@@ -315,7 +323,7 @@ const AdminAttendancePage = () => {
                           className="form-control"
                           value={
                             isNaN(sum.total_paid_leave_days)
-                              ? ""
+                              ? 0
                               : sum.total_paid_leave_days
                           }
                           onChange={(e) =>
@@ -327,48 +335,122 @@ const AdminAttendancePage = () => {
                           }
                         />
                       </td>
+
+                      {/* 休日出勤（回・時間） */}
                       <td>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={sum.total_holiday_work_count ?? ""}
-                          onChange={(e) =>
-                            handleSummaryChange(
-                              sum.id,
-                              "total_holiday_work_count",
-                              e.target.value
-                            )
-                          }
-                        />
+                        <div className="row gx-1">
+                          <div className="col">
+                            <input
+                              type="number"
+                              step="0.1"
+                              className="form-control"
+                              placeholder="回"
+                              value={sum.total_holiday_work_count ?? "0"}
+                              onChange={(e) =>
+                                handleSummaryChange(
+                                  sum.id,
+                                  "total_holiday_work_count",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="col">
+                            <input
+                              type="number"
+                              step="0.1"
+                              className="form-control"
+                              placeholder="h"
+                              value={sum.total_holiday_work_hours ?? 0}
+                              onChange={(e) =>
+                                handleSummaryChange(
+                                  sum.id,
+                                  "total_holiday_work_hours",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
                       </td>
+
+                      {/* 遅刻（回・時間） */}
                       <td>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={sum.total_late_count ?? ""}
-                          onChange={(e) =>
-                            handleSummaryChange(
-                              sum.id,
-                              "total_late_count",
-                              e.target.value
-                            )
-                          }
-                        />
+                        <div className="row gx-1">
+                          <div className="col">
+                            <input
+                              type="number"
+                              step="0.1"
+                              className="form-control"
+                              placeholder="回"
+                              value={sum.total_late_count ?? "0"}
+                              onChange={(e) =>
+                                handleSummaryChange(
+                                  sum.id,
+                                  "total_late_count",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="col">
+                            <input
+                              type="number"
+                              step="0.1"
+                              className="form-control"
+                              placeholder="h"
+                              value={sum.total_late_hours ?? 0}
+                              onChange={(e) =>
+                                handleSummaryChange(
+                                  sum.id,
+                                  "total_late_hours",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
                       </td>
+
+                      {/* 早退（回・時間） */}
                       <td>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={sum.total_early_leave_count ?? ""}
-                          onChange={(e) =>
-                            handleSummaryChange(
-                              sum.id,
-                              "total_early_leave_count",
-                              e.target.value
-                            )
-                          }
-                        />
+                        <div className="row gx-1">
+                          <div className="col">
+                            <input
+                              type="number"
+                              step="0.1"
+                              className="form-control"
+                              placeholder="回"
+                              value={sum.total_early_leave_count ?? "0"}
+                              onChange={(e) =>
+                                handleSummaryChange(
+                                  sum.id,
+                                  "total_early_leave_count",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="col">
+                            <input
+                              type="number"
+                              step="0.1"
+                              className="form-control"
+                              placeholder="h"
+                              value={sum.total_early_leave_hours ?? 0}
+                              onChange={(e) =>
+                                handleSummaryChange(
+                                  sum.id,
+                                  "total_early_leave_hours",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
                       </td>
+
+                      {/* 備考 */}
                       <td>
                         <input
                           type="text"
@@ -379,6 +461,8 @@ const AdminAttendancePage = () => {
                           }
                         />
                       </td>
+
+                      {/* 操作ボタン */}
                       <td>
                         <button
                           className="btn btn-sm btn-success"
