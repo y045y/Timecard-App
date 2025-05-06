@@ -16,10 +16,23 @@ router.get("/", async (req, res) => {
 // POST: 自己申告データ追加
 router.post("/", async (req, res) => {
   try {
-    await SelfReportStore.insert(req.body);
-    res.status(201).send("Self report created");
+    const { user_id, report_month } = req.body;
+
+    const existing = await SelfReportStore.findByUserAndMonth(
+      user_id,
+      report_month
+    );
+
+    if (existing) {
+      req.body.id = existing.id; // IDを設定して更新モードに
+      await SelfReportStore.update(req.body);
+      return res.send("✅ Self-report updated");
+    } else {
+      await SelfReportStore.insert(req.body);
+      return res.send("✅ Self-report inserted");
+    }
   } catch (err) {
-    console.error("❌ Failed to insert self report:", err);
+    console.error("❌ self-report error:", err);
     res.status(500).send("Server error");
   }
 });
@@ -39,8 +52,9 @@ router.put("/:id", async (req, res) => {
       total_paid_leave_days: parseFloat(req.body.total_paid_leave_days) || 0,
       note: req.body.note || "",
     };
+
     await SelfReportStore.update(report);
-    res.send("✅ Self report updated");
+    res.status(200).send("✅ Self report updated");
   } catch (err) {
     console.error("❌ Failed to update self report:", err);
     res.status(500).send("Server error");

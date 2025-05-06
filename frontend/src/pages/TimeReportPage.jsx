@@ -1,42 +1,107 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import { isHoliday } from "@holiday-jp/holiday_jp";
 
-const TimeReportPage = () => {
-  const startDate = new Date("2025-04-26");
-  const endDate = new Date("2025-05-25");
-
-  const generateDateList = () => {
-    const dates = [];
-    let current = new Date(startDate);
-    while (current <= endDate) {
-      dates.push(new Date(current));
-      current.setDate(current.getDate() + 1);
-    }
-    return dates;
-  };
-
-  const dateList = generateDateList();
-
-  const [attendanceData, setAttendanceData] = useState(
-    dateList.map((date) => ({
-      date,
-      startTime: "",
-      endTime: "",
-      overtime: "",
-      paidLeave: "",
-      note: "",
-    }))
-  );
-
+const TimeReportPage = ({
+  attendanceData = [],
+  setAttendanceData = () => {},
+}) => {
   const [summary, setSummary] = useState({
-    holidayWorkCount: "",
-    holidayWorkHours: "",
-    lateCount: "",
-    lateHours: "",
-    earlyLeaveCount: "",
-    earlyLeaveHours: "",
+    holidayWorkCount: "0.0",
+    holidayWorkHours: "0.0",
+    lateCount: "0.0",
+    lateHours: "0.0",
+    earlyLeaveCount: "0.0",
+    earlyLeaveHours: "0.0",
     summaryNote: "",
   });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const getCurrentReportMonth = () => {
+    const now = new Date();
+    let year = now.getFullYear();
+    let month = now.getMonth();
+    if (now.getDate() <= 25) {
+      month -= 1;
+      if (month < 0) {
+        month = 11;
+        year -= 1;
+      }
+    }
+    return `${year}-${String(month + 1).padStart(2, "0")}`;
+  };
+
+  const fetchAttendance = async () => {
+    try {
+      const res = await axios.get(
+        "http://localhost:5000/api/attendance-records"
+      );
+      const sqlRecords = res.data;
+
+      const updatedData = attendanceData.map((row) => {
+        const rowDateStr = new Date(row.date).toISOString().split("T")[0];
+        const match = sqlRecords.find(
+          (r) => r.attendance_date.split("T")[0] === rowDateStr
+        );
+
+        return match
+          ? {
+              ...row,
+              id: match.id,
+              startTime: match.start_time || "",
+              endTime: match.end_time || "",
+              overtime: match.overtime_hours?.toString() || "0.0",
+              paidLeave: match.paid_leave_days?.toString() || "",
+              note: match.note || "",
+            }
+          : row;
+      });
+
+      setAttendanceData(updatedData);
+    } catch (err) {
+      console.error("❌ 勤怠データ取得エラー", err);
+    }
+  };
+
+  const fetchSummary = async (reportMonth) => {
+    try {
+      const res = await axios.get(
+        `http://localhost:5000/api/self-reports?month=${reportMonth}&user_id=1`
+      );
+      const record = res.data;
+      if (!record || Object.keys(record).length === 0) {
+        setSummary({
+          holidayWorkCount: "0.0",
+          holidayWorkHours: "0.0",
+          lateCount: "0.0",
+          lateHours: "0.0",
+          earlyLeaveCount: "0.0",
+          earlyLeaveHours: "0.0",
+          summaryNote: "",
+        });
+        return;
+      }
+
+      setSummary({
+        holidayWorkCount: record.holiday_work_count?.toString() || "0.0",
+        holidayWorkHours: record.holiday_work_hours?.toString() || "0.0",
+        lateCount: record.late_count?.toString() || "0.0",
+        lateHours: record.late_hours?.toString() || "0.0",
+        earlyLeaveCount: record.early_leave_count?.toString() || "0.0",
+        earlyLeaveHours: record.early_leave_hours?.toString() || "0.0",
+        summaryNote: record.note || "",
+      });
+    } catch (err) {
+      console.error("❌ サマリー取得エラー", err);
+    }
+  };
+
+  useEffect(() => {
+    const reportMonth = getCurrentReportMonth();
+    fetchAttendance();
+    fetchSummary(reportMonth);
+  }, []);
 
   const handleChange = (index, field, value) => {
     const newData = [...attendanceData];
@@ -46,16 +111,6 @@ const TimeReportPage = () => {
 
   const handleSummaryChange = (field, value) => {
     setSummary((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmit = () => {
-    console.log("提出された勤怠データ:", attendanceData);
-    console.log("提出された合計欄データ:", {
-      ...summary,
-      totalOvertimeHours: overtimeSum,
-      totalPaidLeaveDays: paidLeaveSum,
-    });
-    alert("申請しました！（仮）");
   };
 
   const overtimeSum = attendanceData.reduce((total, row) => {
@@ -68,30 +123,84 @@ const TimeReportPage = () => {
     return total + (isNaN(value) ? 0 : value);
   }, 0);
 
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
+      const now = new Date();
+      let year = now.getFullYear();
+      let month = now.getMonth();
+      if (now.getDate() <= 25) {
+        month -= 1;
+        if (month < 0) {
+          month = 11;
+          year -= 1;
+        }
+      }
+      const reportMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
+
+      const attendancePayload = attendanceData.map((row) => ({
+        id: row.id,
+        startTime: row.startTime || "",
+        endTime: row.endTime || "",
+        overtime: parseFloat(row.overtime) || 0,
+        paidLeave: parseFloat(row.paidLeave) || 0,
+        note: row.note || "",
+      }));
+      await axios.put(
+        "http://localhost:5000/api/attendance-records/update-all",
+        attendancePayload
+      );
+
+      const summaryPayload = {
+        user_id: 1,
+        report_month: reportMonth,
+        total_overtime_hours: parseFloat(overtimeSum) || 0,
+        total_paid_leave_days: parseFloat(paidLeaveSum) || 0,
+        holiday_work_count: parseFloat(summary.holidayWorkCount) || 0,
+        holiday_work_hours: parseFloat(summary.holidayWorkHours) || 0,
+        late_count: parseFloat(summary.lateCount) || 0,
+        late_hours: parseFloat(summary.lateHours) || 0,
+        early_leave_count: parseFloat(summary.earlyLeaveCount) || 0,
+        early_leave_hours: parseFloat(summary.earlyLeaveHours) || 0,
+        note: summary.summaryNote || "",
+      };
+      await axios.post(
+        "http://localhost:5000/api/self-reports",
+        summaryPayload
+      );
+
+      alert("✅ 申請が完了しました！");
+
+      await fetchAttendance();
+      await fetchSummary(reportMonth);
+    } catch (err) {
+      console.error("❌ 申請エラー:", err);
+      alert("❌ 申請に失敗しました");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const formatDateWithWeekday = (date) => {
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
+    const d = new Date(date);
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
     const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
-    const weekday = weekdays[date.getDay()];
+    const weekday = weekdays[d.getDay()];
     return `${month}/${day} (${weekday})`;
   };
-  // const compactInputStyle = {
-  //   fontWeight: "bold",
-  //   width: "55px",
-  //   margin: "0 auto", // ← ここを修正
-  //   height: "28px",
-  //   fontSize: "12px",
-  //   padding: "2px 6px",
-  // };
 
   const compactSelectStyle = {
     fontWeight: "bold",
     width: "55px",
-    margin: "0 auto", // ← ここも
+    margin: "0 auto",
     height: "28px",
     fontSize: "12px",
     padding: "2px 6px",
   };
+
   const freeInputStyle = {
     backgroundColor: "#fff9c4",
     border: "2px solid #007bff",
@@ -122,9 +231,9 @@ const TimeReportPage = () => {
           </thead>
           <tbody>
             {attendanceData.map((row, index) => {
-              const weekday = row.date.getDay();
+              const weekday = new Date(row.date).getDay();
               let backgroundColor = "inherit";
-              if (isHoliday(row.date)) backgroundColor = "#ffe5e5";
+              if (isHoliday(new Date(row.date))) backgroundColor = "#ffe5e5";
               else if (weekday === 0) backgroundColor = "#ffe5e5";
               else if (weekday === 6) backgroundColor = "#e5f1ff";
 

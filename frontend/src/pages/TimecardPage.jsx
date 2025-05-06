@@ -1,7 +1,29 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import TimeReportPage from "./TimeReportPage";
+import { getJSTDateString, getJSTTimeString } from "../utils/timeFormatter";
+
+// 勤怠対象日を生成（例: 4/26∼5/25）
+const generateDates = () => {
+  const start = new Date("2025-04-26");
+  const end = new Date("2025-05-25");
+  const days = [];
+  while (start <= end) {
+    days.push({
+      date: new Date(start),
+      startTime: "",
+      endTime: "",
+      overtime: "0.0",
+      paidLeave: "",
+      note: "",
+    });
+    start.setDate(start.getDate() + 1);
+  }
+  return days;
+};
 
 const TimecardPage = () => {
+  const [attendanceData, setAttendanceData] = useState(generateDates());
   const [currentTime, setCurrentTime] = useState(new Date());
   const [startTime, setStartTime] = useState(null);
   const [endTime, setEndTime] = useState(null);
@@ -14,67 +36,67 @@ const TimecardPage = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // JST補正（Date → "yyyy-mm-dd"）
-  const getJSTDateString = (date) => {
-    const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-    return jst.toISOString().split("T")[0];
-  };
-
-  // JST補正（Date → "HH:mm"）
-  const getJSTTimeString = (date) => {
-    const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-    const h = String(jst.getHours()).padStart(2, "0");
-    const m = String(jst.getMinutes()).padStart(2, "0");
-    return `${h}:${m}`;
-  };
-
   const handleStart = async () => {
-    if (status === "未出勤") {
-      const now = new Date();
-      setStartTime(now);
-      setStatus("出勤中");
+    if (status !== "未出勤") return;
 
-      const dateStr = getJSTDateString(now);
-      const timeStr = getJSTTimeString(now);
+    const now = new Date();
+    setStartTime(now);
+    setStatus("出勤中");
 
-      try {
-        await axios.post(
-          "http://localhost:5000/api/attendance-records/punch-in",
-          {
-            user_id: 1,
-            attendance_date: dateStr,
-            start_time: timeStr,
-          }
-        );
-      } catch (err) {
-        console.error("❌ 出勤登録失敗:", err);
-        alert("出勤打刻に失敗しました");
-      }
+    const dateStr = getJSTDateString(now);
+    const timeStr = getJSTTimeString(now);
+
+    const newData = attendanceData.map((row) => {
+      const rowDateStr = getJSTDateString(new Date(row.date));
+      return rowDateStr === dateStr ? { ...row, startTime: timeStr } : row;
+    });
+    setAttendanceData(newData);
+
+    try {
+      await axios.post(
+        "http://localhost:5000/api/attendance-records/punch-in",
+        {
+          user_id: 1,
+          attendance_date: dateStr,
+          start_time: timeStr,
+        }
+      );
+      console.log("✅ 出勤打刻成功:", { dateStr, timeStr });
+    } catch (err) {
+      console.error("❌ 出勤登録失敗:", err);
+      alert("出勤打刻に失敗しました");
     }
   };
 
   const handleEnd = async () => {
-    if (status === "出勤中") {
-      const now = new Date();
-      setEndTime(now);
-      setStatus("退勤済み");
+    if (status !== "出勤中") return;
 
-      const dateStr = getJSTDateString(now);
-      const timeStr = getJSTTimeString(now);
+    const now = new Date();
+    setEndTime(now);
+    setStatus("退勤済み");
 
-      try {
-        await axios.put(
-          "http://localhost:5000/api/attendance-records/punch-out",
-          {
-            user_id: 1,
-            attendance_date: dateStr,
-            end_time: timeStr,
-          }
-        );
-      } catch (err) {
-        console.error("❌ 退勤登録失敗:", err);
-        alert("退勤打刻に失敗しました");
-      }
+    const dateStr = getJSTDateString(now);
+    const timeStr = getJSTTimeString(now);
+
+    const newData = attendanceData.map((row) => {
+      const rowDateStr = getJSTDateString(new Date(row.date));
+      return rowDateStr === dateStr ? { ...row, endTime: timeStr } : row;
+    });
+    setAttendanceData(newData);
+
+    try {
+      await axios.put(
+        "http://localhost:5000/api/attendance-records/punch-out",
+        {
+          user_id: 1,
+          attendance_date: dateStr,
+          end_time: timeStr,
+        }
+      );
+      console.log("✅ 退勤打刻成功:", { dateStr, timeStr });
+    } catch (err) {
+      console.error("❌ 退勤登録失敗:", err);
+      alert("退勤打刻に失敗しました");
     }
   };
 
@@ -87,38 +109,45 @@ const TimecardPage = () => {
   };
 
   return (
-    <div
-      className="card p-4 shadow-sm mb-5"
-      style={{ maxWidth: "400px", margin: "auto" }}
-    >
-      <h5 className="text-center mb-3">
-        {currentTime.toLocaleString("ja-JP")}
-      </h5>
-      <h6 className="text-center mb-4">佐脇 良尚 さん</h6>
+    <>
+      <div
+        className="card p-4 shadow-sm mb-5"
+        style={{ maxWidth: "400px", margin: "auto" }}
+      >
+        <h5 className="text-center mb-3">
+          {currentTime.toLocaleString("ja-JP")}
+        </h5>
+        <h6 className="text-center mb-4">佐脇 良尚 さん</h6>
 
-      <div className="mb-3">
-        <p>出勤：{formatTime(startTime)}</p>
-        <p>退勤：{formatTime(endTime)}</p>
+        <div className="mb-3">
+          <p>出勤：{formatTime(startTime)}</p>
+          <p>退勤：{formatTime(endTime)}</p>
+        </div>
+
+        {status === "未出勤" && (
+          <button className="btn btn-primary w-100 mb-2" onClick={handleStart}>
+            出勤する
+          </button>
+        )}
+
+        {status === "出勤中" && (
+          <button className="btn btn-danger w-100 mb-2" onClick={handleEnd}>
+            退勤する
+          </button>
+        )}
+
+        {status === "退勤済み" && (
+          <div className="alert alert-success text-center" role="alert">
+            お疲れさまでした！
+          </div>
+        )}
       </div>
 
-      {status === "未出勤" && (
-        <button className="btn btn-primary w-100 mb-2" onClick={handleStart}>
-          出勤する
-        </button>
-      )}
-
-      {status === "出勤中" && (
-        <button className="btn btn-danger w-100 mb-2" onClick={handleEnd}>
-          退勤する
-        </button>
-      )}
-
-      {status === "退勤済み" && (
-        <div className="alert alert-success text-center" role="alert">
-          お疲れさまでした！
-        </div>
-      )}
-    </div>
+      <TimeReportPage
+        attendanceData={attendanceData}
+        setAttendanceData={setAttendanceData}
+      />
+    </>
   );
 };
 

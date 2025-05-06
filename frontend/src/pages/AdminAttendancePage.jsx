@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { isHoliday } from "@holiday-jp/holiday_jp";
 
 const AdminAttendancePage = () => {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
@@ -33,7 +34,6 @@ const AdminAttendancePage = () => {
         const res = await axios.get(
           `http://localhost:5000/api/time-reports?start=${start}&end=${end}`
         );
-
         setAttendanceRecords(
           Array.isArray(res.data.attendanceRecords)
             ? res.data.attendanceRecords
@@ -45,7 +45,7 @@ const AdminAttendancePage = () => {
             : [res.data.summaryRecords]
         );
       } catch (err) {
-        console.error("❌ 勤怠データ取得失敗:", err);
+        console.error("❌ 勤態データ取得失敗:", err);
       }
     };
     fetchData();
@@ -54,7 +54,10 @@ const AdminAttendancePage = () => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     date.setHours(date.getHours() + 9);
-    return `${date.getMonth() + 1}/${date.getDate()}`;
+    const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+    return `${date.getMonth() + 1}/${date.getDate()} (${
+      weekdays[date.getDay()]
+    })`;
   };
 
   const userNames = [
@@ -85,6 +88,12 @@ const AdminAttendancePage = () => {
               [field]: [
                 "total_overtime_hours",
                 "total_paid_leave_days",
+                "total_holiday_work_count",
+                "total_holiday_work_hours",
+                "total_late_count",
+                "total_late_hours",
+                "total_early_leave_count",
+                "total_early_leave_hours",
               ].includes(field)
                 ? parseFloat(value) || 0
                 : value,
@@ -98,6 +107,8 @@ const AdminAttendancePage = () => {
     try {
       const payload = {
         ...record,
+        start_time: record.start_time || null,
+        end_time: record.end_time || null,
         overtime_hours: parseFloat(record.overtime_hours) || 0,
         paid_leave_days: parseFloat(record.paid_leave_days) || 0,
       };

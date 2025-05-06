@@ -1,40 +1,20 @@
+// backend/routes/attendanceRoutes.js
 const express = require("express");
 const router = express.Router();
 const AttendanceRecordStore = require("../stores/attendanceRecordStore");
 const AttendanceStore = require("../stores/attendanceStore");
 
-// HH:mm → Date("1970-01-01T08:30:00")
-const parseTimeToDateObject = (timeStr) => {
-  if (typeof timeStr !== "string") {
-    console.error("⚠️ 無効な timeStr:", timeStr);
-    throw new Error("timeStr must be a string like '08:30'");
-  }
-
-  const [h, m] = timeStr.split(":");
-  const hour = parseInt(h, 10);
-  const minute = parseInt(m, 10);
-
-  if (isNaN(hour) || isNaN(minute)) {
-    console.error("⚠️ 数値変換エラー:", h, m);
-    throw new Error("Invalid hour or minute");
-  }
-
-  return new Date(Date.UTC(1970, 0, 1, hour, minute));
-};
-
 // ===== 1. 打刻系ルート =====
 
-// POST: 出勤登録（打刻）
 router.post("/punch-in", async (req, res) => {
   try {
     const { user_id, attendance_date, start_time } = req.body;
-
-    console.log("📥 出勤打刻リクエスト:", req.body);
+    console.log("📅 punch-in req.body:", req.body);
 
     await AttendanceStore.punchIn({
       userId: user_id,
       attendanceDate: attendance_date,
-      startTime: parseTimeToDateObject(start_time), // "08:30" → Date
+      startTime: start_time, // 文字列で渡す
     });
 
     res.send("✅ 出勤記録しました");
@@ -44,17 +24,15 @@ router.post("/punch-in", async (req, res) => {
   }
 });
 
-// PUT: 退勤登録（打刻）
 router.put("/punch-out", async (req, res) => {
   try {
     const { user_id, attendance_date, end_time } = req.body;
-
-    console.log("📥 退勤打刻リクエスト:", req.body);
+    console.log("📅 退勤 req.body:", req.body);
 
     await AttendanceStore.punchOut({
       userId: user_id,
       attendanceDate: attendance_date,
-      endTime: parseTimeToDateObject(end_time), // "18:00" → Date
+      endTime: end_time, // 文字列で渡す
     });
 
     res.send("✅ 退勤記録しました");
@@ -63,10 +41,23 @@ router.put("/punch-out", async (req, res) => {
     res.status(500).send("退勤登録に失敗しました");
   }
 });
+router.put("/update-all", async (req, res) => {
+  try {
+    const updates = req.body;
+    if (!Array.isArray(updates)) {
+      return res.status(400).send("Invalid request format");
+    }
+
+    await AttendanceStore.bulkUpdate(updates);
+    res.send("✅ All records updated via bulk SP");
+  } catch (err) {
+    console.error("❌ Bulk update error:", err);
+    res.status(500).send("Server error");
+  }
+});
 
 // ===== 2. 通常の勤怠管理API =====
 
-// GET: 全件取得
 router.get("/", async (req, res) => {
   try {
     const records = await AttendanceRecordStore.getAll();
@@ -77,7 +68,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST: 勤怠レコード追加（明細登録）
 router.post("/record", async (req, res) => {
   try {
     await AttendanceRecordStore.insert(req.body);
@@ -88,7 +78,6 @@ router.post("/record", async (req, res) => {
   }
 });
 
-// DELETE: 勤怠レコード削除
 router.delete("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -100,7 +89,6 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// PUT: 勤怠レコード更新（明細）
 router.put("/:id", async (req, res) => {
   try {
     const record = {
