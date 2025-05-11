@@ -126,19 +126,33 @@ const TimeReportPage = ({
     }
   };
 
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const init = async () => {
-      const reportMonth = getCurrentReportMonth();
-      const settingRes = await axios.get(
-        "http://localhost:5000/api/settings/closing-day"
-      );
-      const startDay = parseInt(settingRes.data.closing_start_day, 10);
-      setClosingStartDay(startDay);
+      try {
+        setLoading(true);
+        const reportMonth = getCurrentReportMonth();
+        const settingRes = await axios.get(
+          "http://localhost:5000/api/settings/closing-day"
+        );
+        const startDay = parseInt(settingRes.data.closing_start_day, 10);
+        setClosingStartDay(startDay);
 
-      const { start, end } = getDateRangeForMonth(reportMonth, startDay);
-      await fetchAttendance(start, end);
-      await fetchSummary(reportMonth);
+        const { start, end } = getDateRangeForMonth(reportMonth, startDay);
+
+        // ⏱ APIを並列で呼び出す
+        await Promise.all([
+          fetchAttendance(start, end),
+          fetchSummary(reportMonth),
+        ]);
+      } catch (err) {
+        console.error("❌ 初期データ取得失敗", err);
+      } finally {
+        setLoading(false);
+      }
     };
+
     init();
   }, [userId]);
 
@@ -255,6 +269,14 @@ const TimeReportPage = ({
   const tableCellStyle = {
     padding: "4px 8px",
   };
+  if (loading) {
+    return (
+      <div className="container mt-5 text-center">
+        <div className="spinner-border text-primary mb-3" role="status" />
+        <p>勤怠データを読み込んでいます...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mt-5">

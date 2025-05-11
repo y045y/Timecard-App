@@ -68,7 +68,7 @@ function App() {
           <Link to="/" className="btn btn-outline-primary me-2">
             ホーム
           </Link>
-          <Link to="/timecard" className="btn btn-outline-primary me-2">
+          {/* <Link to="/timecard" className="btn btn-outline-primary me-2">
             打刻
           </Link>
           <Link to="/report" className="btn btn-outline-primary me-2">
@@ -76,7 +76,7 @@ function App() {
           </Link>
           <Link to="/admin/settings" className="btn btn-outline-danger me-2">
             管理者設定
-          </Link>
+          </Link> */}
           <Link to="/admin/attendance" className="btn btn-outline-danger">
             勤怠管理（管理者）
           </Link>

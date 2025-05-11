@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { isHoliday } from "@holiday-jp/holiday_jp";
 
 const TimeReportView = ({
@@ -12,6 +12,24 @@ const TimeReportView = ({
   overtimeSum = 0,
   paidLeaveSum = 0,
 }) => {
+  const overtimeOptions = useMemo(() => {
+    return [...Array(21)].map((_, i) => {
+      const value = (i * 0.5).toFixed(1);
+      return (
+        <option key={value} value={value}>
+          {value}
+        </option>
+      );
+    });
+  }, []);
+
+  const paidLeaveOptions = useMemo(() => {
+    return ["", "0.5", "1.0"].map((value) => (
+      <option key={value} value={value}>
+        {value}
+      </option>
+    ));
+  }, []);
   const formatDateWithWeekday = (dateStr) => {
     const date = new Date(dateStr);
     const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
@@ -113,14 +131,7 @@ const TimeReportView = ({
                       handleChange(index, "overtime", e.target.value)
                     }
                   >
-                    {[...Array(21)].map((_, i) => {
-                      const value = (i * 0.5).toFixed(1);
-                      return (
-                        <option key={value} value={value}>
-                          {value}
-                        </option>
-                      );
-                    })}
+                    {overtimeOptions}
                   </select>
                 </td>
                 <td>
@@ -132,11 +143,7 @@ const TimeReportView = ({
                       handleChange(index, "paidLeave", e.target.value)
                     }
                   >
-                    {["", "0.5", "1.0"].map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
+                    {paidLeaveOptions}
                   </select>
                 </td>
                 <td>
