@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useSearchParams } from "react-router-dom";
 import TimeReportPage from "./TimeReportPage";
 import { getJSTDateString, getJSTTimeString } from "../utils/timeFormatter";
 
-// 勤怠対象日を生成（例: 4/26∼5/25）
 const generateDates = () => {
   const start = new Date("2025-04-26");
   const end = new Date("2025-05-25");
@@ -23,11 +23,15 @@ const generateDates = () => {
 };
 
 const TimecardPage = () => {
+  const [searchParams] = useSearchParams();
+  const userId = parseInt(searchParams.get("user_id"), 10);
+
   const [attendanceData, setAttendanceData] = useState(generateDates());
   const [currentTime, setCurrentTime] = useState(new Date());
   const [startTime, setStartTime] = useState(null);
   const [endTime, setEndTime] = useState(null);
   const [status, setStatus] = useState("未出勤");
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -35,6 +39,23 @@ const TimecardPage = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    axios
+      .get("http://localhost:5000/api/users")
+      .then((res) => {
+        const user = res.data.find((u) => u.id === userId);
+        setUserName(user?.name || `ユーザーID: ${userId}`);
+      })
+      .catch((err) => {
+        console.error("❌ ユーザー名取得失敗:", err);
+        setUserName(`ユーザーID: ${userId}`);
+      });
+  }, [userId]);
+
+  if (!userId || isNaN(userId)) {
+    return <div className="alert alert-danger">❌ user_idが無効です</div>;
+  }
 
   const handleStart = async () => {
     if (status !== "未出勤") return;
@@ -56,7 +77,7 @@ const TimecardPage = () => {
       await axios.post(
         "http://localhost:5000/api/attendance-records/punch-in",
         {
-          user_id: 1,
+          user_id: userId,
           attendance_date: dateStr,
           start_time: timeStr,
         }
@@ -88,7 +109,7 @@ const TimecardPage = () => {
       await axios.put(
         "http://localhost:5000/api/attendance-records/punch-out",
         {
-          user_id: 1,
+          user_id: userId,
           attendance_date: dateStr,
           end_time: timeStr,
         }
@@ -117,7 +138,7 @@ const TimecardPage = () => {
         <h5 className="text-center mb-3">
           {currentTime.toLocaleString("ja-JP")}
         </h5>
-        <h6 className="text-center mb-4">佐脇 良尚 さん</h6>
+        <h6 className="text-center mb-4">{userName}</h6>
 
         <div className="mb-3">
           <p>出勤：{formatTime(startTime)}</p>
@@ -144,6 +165,7 @@ const TimecardPage = () => {
       </div>
 
       <TimeReportPage
+        userId={userId}
         attendanceData={attendanceData}
         setAttendanceData={setAttendanceData}
       />

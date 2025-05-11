@@ -3,8 +3,21 @@ const router = express.Router();
 const SelfReportStore = require("../stores/selfReportStore");
 
 // GET: 自己申告データ 全件取得
+// GET: 全件 or クエリ指定で1件返す
 router.get("/", async (req, res) => {
   try {
+    const { user_id, month } = req.query;
+
+    // クエリが指定されている場合は 1件検索
+    if (user_id && month) {
+      const record = await SelfReportStore.findByUserAndMonth(
+        parseInt(user_id),
+        month
+      );
+      return res.json(record || {});
+    }
+
+    // 指定がなければ全件返す
     const reports = await SelfReportStore.getAll();
     res.json(reports);
   } catch (err) {

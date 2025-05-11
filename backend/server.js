@@ -7,6 +7,7 @@ const attendanceRoutes = require("./routes/attendanceRecords");
 const selfReportRoutes = require("./routes/selfReports");
 const userRoutes = require("./routes/users");
 const timeReportRoutes = require("./routes/timeReports");
+const settingsRoutes = require("./routes/settingsRoutes");
 
 const app = express();
 const PORT = 5000;
@@ -29,6 +30,9 @@ app.use("/api/self-reports", selfReportRoutes);
 app.use("/api/users", userRoutes);
 
 app.use("/api/time-reports", timeReportRoutes);
+
+app.use("/api/settings", settingsRoutes);
+
 // サーバー起動
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

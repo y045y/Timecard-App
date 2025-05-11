@@ -60,8 +60,17 @@ router.put("/update-all", async (req, res) => {
 
 router.get("/", async (req, res) => {
   try {
-    const records = await AttendanceRecordStore.getAll();
-    res.json(records);
+    const { user_id } = req.query;
+
+    if (user_id) {
+      const records = await AttendanceRecordStore.getByUserId(
+        parseInt(user_id)
+      );
+      res.json(records);
+    } else {
+      const records = await AttendanceRecordStore.getAll();
+      res.json(records);
+    }
   } catch (err) {
     console.error("❌ 勤怠データ取得失敗:", err);
     res.status(500).send("Server error");

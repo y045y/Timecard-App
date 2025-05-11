@@ -1,6 +1,10 @@
 import React, { useState } from "react";
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import TimecardPage from "./pages/TimecardPage";
 import TimeReportView from "./pages/TimeReportView";
+import HomePage from "./pages/HomePage";
+import AdminSettingsPage from "./pages/AdminSettingsPage";
+import AdminAttendancePage from "./pages/AdminAttendancePage";
 
 function App() {
   const startDate = new Date("2025-04-26");
@@ -58,24 +62,49 @@ function App() {
   }, 0);
 
   return (
-    <div className="container mt-5">
-      <TimecardPage
-        attendanceData={attendanceData}
-        setAttendanceData={setAttendanceData}
-      />
-      <hr />
-      <TimeReportView
-        attendanceData={attendanceData}
-        summary={summary}
-        editable={true}
-        onChange={handleRowChange}
-        onSummaryChange={handleSummaryChange}
-        overtimeSum={overtimeSum}
-        paidLeaveSum={paidLeaveSum}
-        title="勤務表（管理者用）"
-        onSubmit={() => alert("保存処理はここで実行")}
-      />
-    </div>
+    <Router>
+      <div className="container mt-5">
+        <nav className="mb-4">
+          <Link to="/" className="btn btn-outline-primary me-2">
+            ホーム
+          </Link>
+          <Link to="/timecard" className="btn btn-outline-primary me-2">
+            打刻
+          </Link>
+          <Link to="/report" className="btn btn-outline-primary me-2">
+            勤務表
+          </Link>
+          <Link to="/admin/settings" className="btn btn-outline-danger me-2">
+            管理者設定
+          </Link>
+          <Link to="/admin/attendance" className="btn btn-outline-danger">
+            勤怠管理（管理者）
+          </Link>
+        </nav>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/timecard" element={<TimecardPage />} />
+          <Route
+            path="/report"
+            element={
+              <TimeReportView
+                attendanceData={attendanceData}
+                summary={summary}
+                editable={true}
+                onChange={handleRowChange}
+                onSummaryChange={handleSummaryChange}
+                overtimeSum={overtimeSum}
+                paidLeaveSum={paidLeaveSum}
+                title="勤務表（管理者用）"
+                onSubmit={() => alert("保存処理はここで実行")}
+              />
+            }
+          />
+          <Route path="/admin/settings" element={<AdminSettingsPage />} />
+          <Route path="/admin/attendance" element={<AdminAttendancePage />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

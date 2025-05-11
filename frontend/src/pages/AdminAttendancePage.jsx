@@ -1,494 +1,257 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { isHoliday } from "@holiday-jp/holiday_jp";
+import TimeReportView from "./TimeReportView";
 
 const AdminAttendancePage = () => {
-  const [attendanceRecords, setAttendanceRecords] = useState([]);
-  const [summaryRecords, setSummaryRecords] = useState([]);
-  const [baseMonth, setBaseMonth] = useState("2025-04");
-
-  const getDateRange = (baseMonth) => {
-    const [year, month] = baseMonth.split("-").map(Number);
-    const start = new Date(year, month - 1, 26);
-    const end = new Date(year, month, 25);
-    const format = (d) => {
-      d.setHours(d.getHours() + 9);
-      return d.toISOString().split("T")[0];
-    };
-    return { start: format(start), end: format(end) };
-  };
-
-  const moveMonth = (offset) => {
-    const [year, month] = baseMonth.split("-").map(Number);
-    const date =
-      offset === 0 ? new Date() : new Date(year, month - 1 + offset, 1);
-    setBaseMonth(
-      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
-    );
-  };
+  const [users, setUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [summary, setSummary] = useState({});
+  const [closingDay, setClosingDay] = useState(null);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const fetchData = async () => {
+    const loadInitial = async () => {
       try {
-        const { start, end } = getDateRange(baseMonth);
-        const res = await axios.get(
-          `http://localhost:5000/api/time-reports?start=${start}&end=${end}`
+        const userRes = await axios.get("http://localhost:5000/api/users");
+        const userList = Array.isArray(userRes.data) ? userRes.data : [];
+
+        if (!Array.isArray(userList) || userList.length === 0) {
+          console.warn("⚠️ ユーザー一覧が空か不正な形式です:", userRes.data);
+          setUsers([]);
+          setSelectedUserId(null);
+          return;
+        }
+
+        setUsers(userList);
+        setSelectedUserId(userList[0].id);
+
+        const settingRes = await axios.get(
+          "http://localhost:5000/api/settings/closing-day"
         );
-        setAttendanceRecords(
-          Array.isArray(res.data.attendanceRecords)
-            ? res.data.attendanceRecords
-            : [res.data.attendanceRecords]
-        );
-        setSummaryRecords(
-          Array.isArray(res.data.summaryRecords)
-            ? res.data.summaryRecords
-            : [res.data.summaryRecords]
-        );
+        if (
+          settingRes.data &&
+          typeof settingRes.data.closing_start_day !== "undefined"
+        ) {
+          const closingStart = parseInt(settingRes.data.closing_start_day, 10);
+          setClosingDay(isNaN(closingStart) ? 26 : closingStart);
+        } else {
+          console.warn("⚠️ 締め日設定が取得できませんでした:", settingRes.data);
+          setClosingDay(26);
+        }
       } catch (err) {
-        console.error("❌ 勤態データ取得失敗:", err);
+        console.warn("⚠️ ユーザーが取得できませんでした", err);
+        setUsers([]);
+        setSelectedUserId(null);
+        setClosingDay(26);
       }
     };
-    fetchData();
-  }, [baseMonth]);
+    loadInitial();
+  }, []);
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    date.setHours(date.getHours() + 9);
-    const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
-    return `${date.getMonth() + 1}/${date.getDate()} (${
-      weekdays[date.getDay()]
-    })`;
-  };
+  useEffect(() => {
+    const loadData = async () => {
+      if (!selectedUserId || !closingDay) return;
 
-  const userNames = [
-    ...new Set(attendanceRecords.map((r) => r.user_name).filter(Boolean)),
-  ];
+      const today = new Date();
+      let year = today.getFullYear();
+      let month = today.getMonth();
+      if (today.getDate() < closingDay) {
+        month -= 1;
+        if (month < 0) {
+          month = 11;
+          year -= 1;
+        }
+      }
 
-  const handleInputChange = (id, field, value) => {
-    setAttendanceRecords((prev) =>
-      prev.map((rec) =>
-        rec.id === id
-          ? {
-              ...rec,
-              [field]: ["overtime_hours", "paid_leave_days"].includes(field)
-                ? parseFloat(value) || 0
-                : value,
-            }
-          : rec
-      )
-    );
-  };
+      const start = new Date(year, month, closingDay);
+      const end = new Date(year, month + 1, closingDay - 1);
 
-  const handleSummaryChange = (id, field, value) => {
-    setSummaryRecords((prev) =>
-      prev.map((rec) =>
-        rec.id === id
-          ? {
-              ...rec,
-              [field]: [
-                "total_overtime_hours",
-                "total_paid_leave_days",
-                "total_holiday_work_count",
-                "total_holiday_work_hours",
-                "total_late_count",
-                "total_late_hours",
-                "total_early_leave_count",
-                "total_early_leave_hours",
-              ].includes(field)
-                ? parseFloat(value) || 0
-                : value,
-            }
-          : rec
-      )
-    );
-  };
+      const dateList = [];
+      let current = new Date(start);
+      while (current <= end) {
+        dateList.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+      }
 
-  const saveAttendance = async (record) => {
+      try {
+        const attendRes = await axios.get(
+          `http://localhost:5000/api/attendance-records?user_id=${selectedUserId}`
+        );
+
+        const records = Array.isArray(attendRes.data) ? attendRes.data : [];
+
+        const attendance = dateList.map((date) => {
+          const strDate = date.toISOString().split("T")[0];
+          const match = records.find(
+            (r) => r.attendance_date.split("T")[0] === strDate
+          );
+          return match
+            ? {
+                ...match,
+                date,
+                startTime: match.start_time || "",
+                endTime: match.end_time || "",
+                overtime: match.overtime_hours?.toFixed(1) || "0.0",
+                paidLeave: match.paid_leave_days?.toFixed(1) || "",
+                note: match.note || "",
+              }
+            : {
+                date,
+                startTime: "",
+                endTime: "",
+                overtime: "0.0",
+                paidLeave: "",
+                note: "",
+              };
+        });
+
+        setAttendanceData(attendance);
+
+        const reportMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
+        const sumRes = await axios.get(
+          `http://localhost:5000/api/self-reports?month=${reportMonth}&user_id=${selectedUserId}`
+        );
+        const rec = sumRes.data || {};
+        setSummary({
+          holidayWorkCount: rec.holiday_work_count?.toFixed(1) || "0.0",
+          holidayWorkHours: rec.holiday_work_hours?.toFixed(1) || "0.0",
+          lateCount: rec.late_count?.toFixed(1) || "0.0",
+          lateHours: rec.late_hours?.toFixed(1) || "0.0",
+          earlyLeaveCount: rec.early_leave_count?.toFixed(1) || "0.0",
+          earlyLeaveHours: rec.early_leave_hours?.toFixed(1) || "0.0",
+          summaryNote: rec.note || "",
+        });
+      } catch (err) {
+        console.error("❌ ユーザーデータ取得エラー:", err);
+        setAttendanceData([]);
+        setSummary({});
+      }
+    };
+
+    loadData();
+  }, [selectedUserId, closingDay]);
+
+  const handleSaveSetting = async () => {
+    if (closingDay < 1 || closingDay > 31) return alert("1〜31日で設定してね");
     try {
-      const payload = {
-        ...record,
-        start_time: record.start_time || null,
-        end_time: record.end_time || null,
-        overtime_hours: parseFloat(record.overtime_hours) || 0,
-        paid_leave_days: parseFloat(record.paid_leave_days) || 0,
-      };
-      await axios.put(
-        `http://localhost:5000/api/attendance-records/${record.id}`,
-        payload
-      );
-      alert("✅ 出勤情報 保存しました");
+      await axios.post("http://localhost:5000/api/settings/closing-day", {
+        closing_start_day: closingDay,
+      });
+      setMessage("✅ 締め日を保存しました");
+      setTimeout(() => setMessage(""), 3000);
     } catch (err) {
-      console.error("❌ 出勤情報 保存失敗:", err);
-      alert("❌ 出勤保存失敗");
+      console.error("❌ 締め日保存エラー:", err);
+      alert("❌ 保存に失敗しました");
     }
   };
 
-  const saveSummary = async (summary) => {
+  const overtimeSum = attendanceData.reduce(
+    (sum, r) => sum + (parseFloat(r.overtime) || 0),
+    0
+  );
+  const paidLeaveSum = attendanceData.reduce(
+    (sum, r) => sum + (parseFloat(r.paidLeave) || 0),
+    0
+  );
+
+  const handleRowChange = (index, newRow) => {
+    const updated = [...attendanceData];
+    updated[index] = newRow;
+    setAttendanceData(updated);
+  };
+
+  const handleSubmit = async () => {
     try {
-      const payload = {
-        total_overtime_hours: parseFloat(summary.total_overtime_hours) || 0,
-        total_paid_leave_days: parseFloat(summary.total_paid_leave_days) || 0,
-        holiday_work_count: parseFloat(summary.total_holiday_work_count) || 0,
-        holiday_work_hours: parseFloat(summary.total_holiday_work_hours) || 0,
-        late_count: parseFloat(summary.total_late_count) || 0,
-        late_hours: parseFloat(summary.total_late_hours) || 0,
-        early_leave_count: parseFloat(summary.total_early_leave_count) || 0,
-        early_leave_hours: parseFloat(summary.total_early_leave_hours) || 0,
-        note: summary.note || "",
-      };
       await axios.put(
-        `http://localhost:5000/api/self-reports/${summary.id}`,
-        payload
+        "http://localhost:5000/api/attendance-records/update-all",
+        attendanceData.map((r) => ({
+          ...r,
+          user_id: selectedUserId,
+        }))
       );
-      alert("✅ 合計情報 保存しました");
+
+      const now = new Date();
+      const reportMonth = `${now.getFullYear()}-${String(
+        now.getMonth() + 1
+      ).padStart(2, "0")}`;
+
+      await axios.post("http://localhost:5000/api/self-reports", {
+        user_id: selectedUserId,
+        report_month: reportMonth,
+        total_overtime_hours: overtimeSum,
+        total_paid_leave_days: paidLeaveSum,
+        holiday_work_count: summary.holidayWorkCount,
+        holiday_work_hours: summary.holidayWorkHours,
+        late_count: summary.lateCount,
+        late_hours: summary.lateHours,
+        early_leave_count: summary.earlyLeaveCount,
+        early_leave_hours: summary.earlyLeaveHours,
+        note: summary.summaryNote,
+      });
+
+      alert("✅ 勤怠情報を保存しました");
     } catch (err) {
-      console.error("❌ 合計情報 保存失敗:", err);
-      alert("❌ 合計保存失敗");
+      console.error("❌ 勤怠保存エラー:", err);
+      alert("❌ 保存に失敗しました");
     }
   };
 
   return (
     <div className="container mt-4">
-      <h2 className="text-center mb-4">勤怠管理者画面（{baseMonth}）</h2>
-      <div className="text-center mb-4">
-        <button
-          className="btn btn-outline-primary mx-1"
-          onClick={() => moveMonth(-1)}
-        >
-          前月
-        </button>
-        <button className="btn btn-primary mx-1" onClick={() => moveMonth(0)}>
-          当月
-        </button>
-        <button
-          className="btn btn-outline-success mx-1"
-          onClick={() => moveMonth(1)}
-        >
-          次月
-        </button>
+      <h3 className="mb-3">管理者：勤怠入力と締め日設定</h3>
+
+      <div className="mb-4">
+        <label className="form-label">締め開始日（毎月）</label>
+        <div className="d-flex">
+          <input
+            type="number"
+            className="form-control me-2"
+            value={closingDay ?? ""}
+            onChange={(e) => setClosingDay(parseInt(e.target.value, 10))}
+            min={1}
+            max={31}
+          />
+          <button
+            className="btn btn-outline-primary"
+            onClick={handleSaveSetting}
+          >
+            保存
+          </button>
+        </div>
+        {message && <div className="alert alert-info mt-2">{message}</div>}
       </div>
 
-      {userNames.map((user) => (
-        <div key={`user-${user}`} className="mb-5">
-          <h4 className="mb-3">{user}</h4>
-          {/* 明細テーブル */}
-          <div className="table-responsive mb-3">
-            <table className="table table-bordered text-center">
-              <thead className="table-light">
-                <tr>
-                  <th>日付</th>
-                  <th>出勤</th>
-                  <th>退勤</th>
-                  <th>残業(h)</th>
-                  <th>有給(日)</th>
-                  <th>備考</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attendanceRecords
-                  .filter((r) => r.user_name === user)
-                  .map((rec) => (
-                    <tr key={`attendance-${rec.id ?? rec.attendance_date}`}>
-                      <td>{formatDate(rec.attendance_date)}</td>
-                      <td>
-                        <input
-                          type="time"
-                          className="form-control"
-                          value={rec.start_time ?? ""}
-                          onChange={(e) =>
-                            handleInputChange(
-                              rec.id,
-                              "start_time",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="time"
-                          className="form-control"
-                          value={rec.end_time ?? ""}
-                          onChange={(e) =>
-                            handleInputChange(
-                              rec.id,
-                              "end_time",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="form-control"
-                          value={
-                            isNaN(rec.overtime_hours) ||
-                            rec.overtime_hours === null
-                              ? 0
-                              : rec.overtime_hours
-                          }
-                          onChange={(e) =>
-                            handleInputChange(
-                              rec.id,
-                              "overtime_hours",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </td>
-                      <td>
-                        <select
-                          className="form-select"
-                          value={
-                            isNaN(rec.paid_leave_days) ||
-                            rec.paid_leave_days === null
-                              ? "0"
-                              : rec.paid_leave_days
-                          }
-                          onChange={(e) =>
-                            handleInputChange(
-                              rec.id,
-                              "paid_leave_days",
-                              e.target.value
-                            )
-                          }
-                        >
-                          <option value="0">0</option>
-                          <option value="0.5">0.5</option>
-                          <option value="1">1</option>
-                        </select>
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={rec.note ?? ""}
-                          onChange={(e) =>
-                            handleInputChange(rec.id, "note", e.target.value)
-                          }
-                        />
-                      </td>
-                      <td>
-                        <button
-                          className="btn btn-sm btn-success"
-                          onClick={() => saveAttendance(rec)}
-                        >
-                          保存
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* 合計テーブル */}
-          <div className="table-responsive">
-            <h5>【合計】</h5>
-            <table className="table table-bordered text-center">
-              <thead className="table-light">
-                <tr>
-                  <th>残業合計(h)</th>
-                  <th>有給合計(日)</th>
-                  <th>休日出勤(回/時間)</th>
-                  <th>遅刻(回/時間)</th>
-                  <th>早退(回/時間)</th>
-                  <th>備考</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summaryRecords
-                  .filter((sum) => sum.user_name === user)
-                  .map((sum) => (
-                    <tr key={`summary-${sum.id ?? sum.report_month}`}>
-                      {/* 残業合計 */}
-                      <td>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="form-control"
-                          value={
-                            isNaN(sum.total_overtime_hours)
-                              ? 0
-                              : sum.total_overtime_hours
-                          }
-                          onChange={(e) =>
-                            handleSummaryChange(
-                              sum.id,
-                              "total_overtime_hours",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </td>
-
-                      {/* 有給合計 */}
-                      <td>
-                        <input
-                          type="number"
-                          step="0.5"
-                          className="form-control"
-                          value={
-                            isNaN(sum.total_paid_leave_days)
-                              ? 0
-                              : sum.total_paid_leave_days
-                          }
-                          onChange={(e) =>
-                            handleSummaryChange(
-                              sum.id,
-                              "total_paid_leave_days",
-                              e.target.value
-                            )
-                          }
-                        />
-                      </td>
-
-                      {/* 休日出勤（回・時間） */}
-                      <td>
-                        <div className="row gx-1">
-                          <div className="col">
-                            <input
-                              type="number"
-                              step="0.1"
-                              className="form-control"
-                              placeholder="回"
-                              value={sum.total_holiday_work_count ?? "0"}
-                              onChange={(e) =>
-                                handleSummaryChange(
-                                  sum.id,
-                                  "total_holiday_work_count",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="col">
-                            <input
-                              type="number"
-                              step="0.1"
-                              className="form-control"
-                              placeholder="h"
-                              value={sum.total_holiday_work_hours ?? 0}
-                              onChange={(e) =>
-                                handleSummaryChange(
-                                  sum.id,
-                                  "total_holiday_work_hours",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* 遅刻（回・時間） */}
-                      <td>
-                        <div className="row gx-1">
-                          <div className="col">
-                            <input
-                              type="number"
-                              step="0.1"
-                              className="form-control"
-                              placeholder="回"
-                              value={sum.total_late_count ?? "0"}
-                              onChange={(e) =>
-                                handleSummaryChange(
-                                  sum.id,
-                                  "total_late_count",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="col">
-                            <input
-                              type="number"
-                              step="0.1"
-                              className="form-control"
-                              placeholder="h"
-                              value={sum.total_late_hours ?? 0}
-                              onChange={(e) =>
-                                handleSummaryChange(
-                                  sum.id,
-                                  "total_late_hours",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* 早退（回・時間） */}
-                      <td>
-                        <div className="row gx-1">
-                          <div className="col">
-                            <input
-                              type="number"
-                              step="0.1"
-                              className="form-control"
-                              placeholder="回"
-                              value={sum.total_early_leave_count ?? "0"}
-                              onChange={(e) =>
-                                handleSummaryChange(
-                                  sum.id,
-                                  "total_early_leave_count",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="col">
-                            <input
-                              type="number"
-                              step="0.1"
-                              className="form-control"
-                              placeholder="h"
-                              value={sum.total_early_leave_hours ?? 0}
-                              onChange={(e) =>
-                                handleSummaryChange(
-                                  sum.id,
-                                  "total_early_leave_hours",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* 備考 */}
-                      <td>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={sum.note ?? ""}
-                          onChange={(e) =>
-                            handleSummaryChange(sum.id, "note", e.target.value)
-                          }
-                        />
-                      </td>
-
-                      {/* 操作ボタン */}
-                      <td>
-                        <button
-                          className="btn btn-sm btn-success"
-                          onClick={() => saveSummary(sum)}
-                        >
-                          保存
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
+      <div className="mb-4">
+        <label className="form-label">ユーザー選択</label>
+        <div className="btn-group">
+          {users.map((u) => (
+            <button
+              key={u.id}
+              className={`btn btn-${
+                u.id === selectedUserId ? "primary" : "outline-primary"
+              }`}
+              onClick={() => setSelectedUserId(u.id)}
+            >
+              {u.name}
+            </button>
+          ))}
         </div>
-      ))}
+      </div>
+
+      {selectedUserId && (
+        <TimeReportView
+          attendanceData={attendanceData}
+          summary={summary}
+          editable={true}
+          onChange={handleRowChange}
+          onSummaryChange={(k, v) => setSummary((s) => ({ ...s, [k]: v }))}
+          onSubmit={handleSubmit}
+          overtimeSum={overtimeSum}
+          paidLeaveSum={paidLeaveSum}
+          title="勤務表（管理者用）"
+        />
+      )}
     </div>
   );
 };

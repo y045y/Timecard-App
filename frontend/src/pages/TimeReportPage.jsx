@@ -1,8 +1,17 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { isHoliday } from "@holiday-jp/holiday_jp";
+// import { useSearchParams } from "react-router-dom";
+
+function getDateRangeForMonth(baseMonth, startDay = 26) {
+  const [year, month] = baseMonth.split("-").map(Number);
+  const end = new Date(year, month, 25);
+  const start = new Date(year, month - 1, startDay);
+  return { start, end };
+}
 
 const TimeReportPage = ({
+  userId,
   attendanceData = [],
   setAttendanceData = () => {},
 }) => {
@@ -17,6 +26,7 @@ const TimeReportPage = ({
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [closingStartDay, setClosingStartDay] = useState(26);
 
   const getCurrentReportMonth = () => {
     const now = new Date();
@@ -32,30 +42,49 @@ const TimeReportPage = ({
     return `${year}-${String(month + 1).padStart(2, "0")}`;
   };
 
-  const fetchAttendance = async () => {
+  const fetchAttendance = async (start, end) => {
     try {
       const res = await axios.get(
-        "http://localhost:5000/api/attendance-records"
+        `http://localhost:5000/api/attendance-records?user_id=${userId}`
       );
       const sqlRecords = res.data;
 
-      const updatedData = attendanceData.map((row) => {
-        const rowDateStr = new Date(row.date).toISOString().split("T")[0];
+      const rangeDates = [];
+      let current = new Date(start);
+      while (current <= end) {
+        rangeDates.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+      }
+
+      const updatedData = rangeDates.map((date) => {
+        const rowDateStr = date.toISOString().split("T")[0];
         const match = sqlRecords.find(
           (r) => r.attendance_date.split("T")[0] === rowDateStr
         );
-
         return match
           ? {
-              ...row,
+              date,
               id: match.id,
               startTime: match.start_time || "",
               endTime: match.end_time || "",
-              overtime: match.overtime_hours?.toString() || "0.0",
-              paidLeave: match.paid_leave_days?.toString() || "",
+              overtime:
+                match.overtime_hours != null
+                  ? Number(match.overtime_hours).toFixed(1)
+                  : "0.0",
+              paidLeave:
+                match.paid_leave_days != null
+                  ? Number(match.paid_leave_days).toFixed(1)
+                  : "",
               note: match.note || "",
             }
-          : row;
+          : {
+              date,
+              startTime: "",
+              endTime: "",
+              overtime: "0.0",
+              paidLeave: "",
+              note: "",
+            };
       });
 
       setAttendanceData(updatedData);
@@ -67,7 +96,7 @@ const TimeReportPage = ({
   const fetchSummary = async (reportMonth) => {
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/self-reports?month=${reportMonth}&user_id=1`
+        `http://localhost:5000/api/self-reports?month=${reportMonth}&user_id=${userId}`
       );
       const record = res.data;
       if (!record || Object.keys(record).length === 0) {
@@ -84,12 +113,12 @@ const TimeReportPage = ({
       }
 
       setSummary({
-        holidayWorkCount: record.holiday_work_count?.toString() || "0.0",
-        holidayWorkHours: record.holiday_work_hours?.toString() || "0.0",
-        lateCount: record.late_count?.toString() || "0.0",
-        lateHours: record.late_hours?.toString() || "0.0",
-        earlyLeaveCount: record.early_leave_count?.toString() || "0.0",
-        earlyLeaveHours: record.early_leave_hours?.toString() || "0.0",
+        holidayWorkCount: Number(record.holiday_work_count || 0).toFixed(1),
+        holidayWorkHours: Number(record.holiday_work_hours || 0).toFixed(1),
+        lateCount: Number(record.late_count || 0).toFixed(1),
+        lateHours: Number(record.late_hours || 0).toFixed(1),
+        earlyLeaveCount: Number(record.early_leave_count || 0).toFixed(1),
+        earlyLeaveHours: Number(record.early_leave_hours || 0).toFixed(1),
         summaryNote: record.note || "",
       });
     } catch (err) {
@@ -98,10 +127,20 @@ const TimeReportPage = ({
   };
 
   useEffect(() => {
-    const reportMonth = getCurrentReportMonth();
-    fetchAttendance();
-    fetchSummary(reportMonth);
-  }, []);
+    const init = async () => {
+      const reportMonth = getCurrentReportMonth();
+      const settingRes = await axios.get(
+        "http://localhost:5000/api/settings/closing-day"
+      );
+      const startDay = parseInt(settingRes.data.closing_start_day, 10);
+      setClosingStartDay(startDay);
+
+      const { start, end } = getDateRangeForMonth(reportMonth, startDay);
+      await fetchAttendance(start, end);
+      await fetchSummary(reportMonth);
+    };
+    init();
+  }, [userId]);
 
   const handleChange = (index, field, value) => {
     const newData = [...attendanceData];
@@ -142,12 +181,14 @@ const TimeReportPage = ({
 
       const attendancePayload = attendanceData.map((row) => ({
         id: row.id,
+        user_id: userId, // ← 追加！
         startTime: row.startTime || "",
         endTime: row.endTime || "",
         overtime: parseFloat(row.overtime) || 0,
         paidLeave: parseFloat(row.paidLeave) || 0,
         note: row.note || "",
       }));
+
       await axios.put(
         "http://localhost:5000/api/attendance-records/update-all",
         attendancePayload
@@ -166,6 +207,7 @@ const TimeReportPage = ({
         early_leave_hours: parseFloat(summary.earlyLeaveHours) || 0,
         note: summary.summaryNote || "",
       };
+
       await axios.post(
         "http://localhost:5000/api/self-reports",
         summaryPayload
@@ -216,7 +258,9 @@ const TimeReportPage = ({
 
   return (
     <div className="container mt-5">
-      <h2 className="text-center mb-4">5月給与 勤怠（4/26〜5/25）</h2>
+      <h2 className="text-center mb-4">
+        勤怠入力画面（{closingStartDay}日締め）
+      </h2>
 
       <div className="table-responsive">
         <table className="table table-bordered text-center align-middle">
@@ -272,7 +316,7 @@ const TimeReportPage = ({
                       <select
                         className="form-select text-center"
                         style={compactSelectStyle}
-                        value={row.paidLeave}
+                        value={row.paidLeave || "0.0"} // ← ここ修正
                         onChange={(e) =>
                           handleChange(index, "paidLeave", e.target.value)
                         }

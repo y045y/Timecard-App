@@ -8,16 +8,27 @@ const TimeReportView = ({
   onChange = () => {},
   onSummaryChange = () => {},
   onSubmit = null,
-  title = "勤務表",
+  title = "勤務表（管理者用）",
   overtimeSum = 0,
   paidLeaveSum = 0,
 }) => {
   const formatDateWithWeekday = (dateStr) => {
     const date = new Date(dateStr);
     const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
-    return `${date.getMonth() + 1}/${date.getDate()} (${
-      weekdays[date.getDay()]
-    })`;
+    const day = date.getDay();
+    const holiday = isHoliday(date);
+    let label = weekdays[day];
+    if (holiday) label = "祝";
+    return `${date.getMonth() + 1}/${date.getDate()}（${label}）`;
+  };
+
+  const getRowColor = (dateStr) => {
+    const date = new Date(dateStr);
+    const day = date.getDay();
+    if (isHoliday(date)) return "#ffe5e5";
+    if (day === 0) return "#ffe5e5";
+    if (day === 6) return "#e5f1ff";
+    return "";
   };
 
   const handleChange = (index, field, value) => {
@@ -68,50 +79,36 @@ const TimeReportView = ({
           </tr>
         </thead>
         <tbody>
-          {attendanceData.map((row, index) => (
-            <tr
-              key={index}
-              style={{
-                backgroundColor: isHoliday(new Date(row.date))
-                  ? "#ffe5e5"
-                  : undefined,
-              }}
-            >
-              <td>{formatDateWithWeekday(row.date)}</td>
-              <td>
-                {editable ? (
+          {attendanceData.map((row, index) => {
+            const bgColor = getRowColor(row.date);
+            return (
+              <tr key={index} style={{ backgroundColor: bgColor }}>
+                <td>{formatDateWithWeekday(row.date)}</td>
+                <td>
                   <input
                     type="time"
                     className="form-control"
-                    value={row.startTime || ""}
+                    value={row.startTime ?? ""}
                     onChange={(e) =>
                       handleChange(index, "startTime", e.target.value)
                     }
                   />
-                ) : (
-                  row.startTime || "--:--"
-                )}
-              </td>
-              <td>
-                {editable ? (
+                </td>
+                <td>
                   <input
                     type="time"
                     className="form-control"
-                    value={row.endTime || ""}
+                    value={row.endTime ?? ""}
                     onChange={(e) =>
                       handleChange(index, "endTime", e.target.value)
                     }
                   />
-                ) : (
-                  row.endTime || "--:--"
-                )}
-              </td>
-              <td>
-                {editable ? (
+                </td>
+                <td>
                   <select
                     className="form-select text-center"
                     style={compactSelectStyle}
-                    value={row.overtime || "0.0"}
+                    value={row.overtime ?? "0.0"}
                     onChange={(e) =>
                       handleChange(index, "overtime", e.target.value)
                     }
@@ -125,16 +122,12 @@ const TimeReportView = ({
                       );
                     })}
                   </select>
-                ) : (
-                  row.overtime ?? "0.0"
-                )}
-              </td>
-              <td>
-                {editable ? (
+                </td>
+                <td>
                   <select
                     className="form-select text-center"
                     style={compactSelectStyle}
-                    value={row.paidLeave || ""}
+                    value={row.paidLeave ?? ""}
                     onChange={(e) =>
                       handleChange(index, "paidLeave", e.target.value)
                     }
@@ -145,26 +138,20 @@ const TimeReportView = ({
                       </option>
                     ))}
                   </select>
-                ) : (
-                  row.paidLeave ?? "0.0"
-                )}
-              </td>
-              <td>
-                {editable ? (
+                </td>
+                <td>
                   <input
                     type="text"
                     className="form-control"
-                    value={row.note || ""}
+                    value={row.note ?? ""}
                     onChange={(e) =>
                       handleChange(index, "note", e.target.value)
                     }
                   />
-                ) : (
-                  row.note || ""
-                )}
-              </td>
-            </tr>
-          ))}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
@@ -188,7 +175,7 @@ const TimeReportView = ({
                   <div className="col">
                     <select
                       className="form-select"
-                      value={summary.holidayWorkCount}
+                      value={summary.holidayWorkCount ?? "0.0"}
                       onChange={(e) =>
                         handleSummaryChange("holidayWorkCount", e.target.value)
                       }
@@ -209,7 +196,7 @@ const TimeReportView = ({
                       step="0.1"
                       className="form-control"
                       placeholder="h"
-                      value={summary.holidayWorkHours}
+                      value={summary.holidayWorkHours ?? ""}
                       onChange={(e) =>
                         handleSummaryChange("holidayWorkHours", e.target.value)
                       }
@@ -225,7 +212,7 @@ const TimeReportView = ({
                   <div className="col">
                     <select
                       className="form-select"
-                      value={summary.lateCount}
+                      value={summary.lateCount ?? "0.0"}
                       onChange={(e) =>
                         handleSummaryChange("lateCount", e.target.value)
                       }
@@ -246,7 +233,7 @@ const TimeReportView = ({
                       step="0.1"
                       className="form-control"
                       placeholder="h"
-                      value={summary.lateHours}
+                      value={summary.lateHours ?? ""}
                       onChange={(e) =>
                         handleSummaryChange("lateHours", e.target.value)
                       }
@@ -262,7 +249,7 @@ const TimeReportView = ({
                   <div className="col">
                     <select
                       className="form-select"
-                      value={summary.earlyLeaveCount}
+                      value={summary.earlyLeaveCount ?? "0.0"}
                       onChange={(e) =>
                         handleSummaryChange("earlyLeaveCount", e.target.value)
                       }
@@ -283,7 +270,7 @@ const TimeReportView = ({
                       step="0.1"
                       className="form-control"
                       placeholder="h"
-                      value={summary.earlyLeaveHours}
+                      value={summary.earlyLeaveHours ?? ""}
                       onChange={(e) =>
                         handleSummaryChange("earlyLeaveHours", e.target.value)
                       }
@@ -298,7 +285,7 @@ const TimeReportView = ({
                 <input
                   className="form-control"
                   style={{ ...freeInputStyle, width: "100%" }}
-                  value={summary.summaryNote}
+                  value={summary.summaryNote ?? ""}
                   onChange={(e) =>
                     handleSummaryChange("summaryNote", e.target.value)
                   }
