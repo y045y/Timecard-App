@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { isHoliday } from "@holiday-jp/holiday_jp";
 // import { useSearchParams } from "react-router-dom";
+import { getJSTDateString } from "../utils/timeFormatter";
 
 function getDateRangeForMonth(baseMonth, startDay = 26) {
   const [year, month] = baseMonth.split("-").map(Number);
@@ -57,10 +58,12 @@ const TimeReportPage = ({
       }
 
       const updatedData = rangeDates.map((date) => {
-        const rowDateStr = date.toISOString().split("T")[0];
+        const rowDateStr = getJSTDateString(date);
+
         const match = sqlRecords.find(
-          (r) => r.attendance_date.split("T")[0] === rowDateStr
+          (r) => getJSTDateString(r.attendance_date) === rowDateStr
         );
+        console.log("🟢 date match:", rowDateStr, "→", match?.id);
         return match
           ? {
               date,
@@ -193,9 +196,10 @@ const TimeReportPage = ({
       }
       const reportMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
 
+      // ✅ ここがポイント（サーバーと合わせたキー名にしてある）
       const attendancePayload = attendanceData.map((row) => ({
         id: row.id,
-        user_id: userId, // ← 追加！
+        user_id: userId,
         startTime: row.startTime || "",
         endTime: row.endTime || "",
         overtime: parseFloat(row.overtime) || 0,
@@ -203,13 +207,17 @@ const TimeReportPage = ({
         note: row.note || "",
       }));
 
+      console.log(
+        "📤 payload:",
+        attendancePayload.find((r) => r.id === 69)
+      );
       await axios.put(
         "http://localhost:5000/api/attendance-records/update-all",
         attendancePayload
       );
 
       const summaryPayload = {
-        user_id: 1,
+        user_id: userId,
         report_month: reportMonth,
         total_overtime_hours: parseFloat(overtimeSum) || 0,
         total_paid_leave_days: parseFloat(paidLeaveSum) || 0,
@@ -229,7 +237,8 @@ const TimeReportPage = ({
 
       alert("✅ 申請が完了しました！");
 
-      await fetchAttendance();
+      const { start, end } = getDateRangeForMonth(reportMonth, closingStartDay);
+      await fetchAttendance(start, end);
       await fetchSummary(reportMonth);
     } catch (err) {
       console.error("❌ 申請エラー:", err);
