@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { useSearchParams } from "react-router-dom";
 import { isHoliday } from "@holiday-jp/holiday_jp";
-// import { useSearchParams } from "react-router-dom";
 import { getJSTDateString } from "../utils/timeFormatter";
 
 function getDateRangeForMonth(baseMonth, startDay = 26) {
@@ -11,11 +11,11 @@ function getDateRangeForMonth(baseMonth, startDay = 26) {
   return { start, end };
 }
 
-const TimeReportPage = ({
-  userId,
-  attendanceData = [],
-  setAttendanceData = () => {},
-}) => {
+const TimeReportPage = () => {
+  const [searchParams] = useSearchParams();
+  const userId = parseInt(searchParams.get("user_id"), 10);
+
+  const [attendanceData, setAttendanceData] = useState([]);
   const [summary, setSummary] = useState({
     holidayWorkCount: "0.0",
     holidayWorkHours: "0.0",
@@ -526,7 +526,7 @@ const TimeReportPage = ({
 
       <div className="text-center mt-4">
         <button className="btn btn-primary w-50" onClick={handleSubmit}>
-          管理者に申請する
+          【更新】
         </button>
       </div>
     </div>

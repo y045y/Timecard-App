@@ -3,6 +3,7 @@ import axios from "axios";
 import { useSearchParams } from "react-router-dom";
 import TimeReportPage from "./TimeReportPage";
 import { getJSTDateString, getJSTTimeString } from "../utils/timeFormatter";
+import { useNavigate } from "react-router-dom";
 
 const generateDates = () => {
   const start = new Date("2025-04-26");
@@ -23,6 +24,7 @@ const generateDates = () => {
 };
 
 const TimecardPage = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const userId = parseInt(searchParams.get("user_id"), 10);
 
@@ -39,6 +41,40 @@ const TimecardPage = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+  useEffect(() => {
+    const fetchTodayStatus = async () => {
+      const todayStr = getJSTDateString(new Date());
+
+      try {
+        const res = await axios.get(
+          `http://localhost:5000/api/attendance-records?user_id=${userId}`
+        );
+
+        const todayRecord = res.data.find((r) =>
+          r.attendance_date?.startsWith(todayStr)
+        );
+
+        if (todayRecord?.start_time && todayRecord?.end_time) {
+          setStatus("退勤済み");
+          setStartTime(
+            new Date(`1970-01-01T${todayRecord.start_time}:00+09:00`)
+          );
+          setEndTime(new Date(`1970-01-01T${todayRecord.end_time}:00+09:00`));
+        } else if (todayRecord?.start_time) {
+          setStatus("出勤中");
+          setStartTime(
+            new Date(`1970-01-01T${todayRecord.start_time}:00+09:00`)
+          );
+        } else {
+          setStatus("未出勤");
+        }
+      } catch (err) {
+        console.error("❌ 打刻状況の取得に失敗", err);
+      }
+    };
+
+    fetchTodayStatus();
+  }, [userId]);
 
   useEffect(() => {
     axios
@@ -163,12 +199,20 @@ const TimecardPage = () => {
           </div>
         )}
       </div>
+      <div className="text-center">
+        <button
+          className="btn btn-outline-secondary"
+          onClick={() => navigate(`/report?user_id=${userId}`)}
+        >
+          勤怠入力画面へ
+        </button>
+      </div>
 
-      <TimeReportPage
+      {/* <TimeReportPage
         userId={userId}
         attendanceData={attendanceData}
         setAttendanceData={setAttendanceData}
-      />
+      /> */}
     </>
   );
 };
