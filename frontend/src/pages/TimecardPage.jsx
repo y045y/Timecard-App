@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { useSearchParams } from "react-router-dom";
-import TimeReportPage from "./TimeReportPage";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { getJSTDateString, getJSTTimeString } from "../utils/timeFormatter";
-import { useNavigate } from "react-router-dom";
 
 const generateDates = () => {
   const start = new Date("2025-04-26");
@@ -41,19 +39,17 @@ const TimecardPage = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
   useEffect(() => {
     const fetchTodayStatus = async () => {
       const todayStr = getJSTDateString(new Date());
-
       try {
         const res = await axios.get(
           `http://localhost:5000/api/attendance-records?user_id=${userId}`
         );
-
         const todayRecord = res.data.find((r) =>
           r.attendance_date?.startsWith(todayStr)
         );
-
         if (todayRecord?.start_time && todayRecord?.end_time) {
           setStatus("退勤済み");
           setStartTime(
@@ -72,7 +68,6 @@ const TimecardPage = () => {
         console.error("❌ 打刻状況の取得に失敗", err);
       }
     };
-
     fetchTodayStatus();
   }, [userId]);
 
@@ -95,20 +90,16 @@ const TimecardPage = () => {
 
   const handleStart = async () => {
     if (status !== "未出勤") return;
-
     const now = new Date();
     setStartTime(now);
     setStatus("出勤中");
-
     const dateStr = getJSTDateString(now);
     const timeStr = getJSTTimeString(now);
-
     const newData = attendanceData.map((row) => {
       const rowDateStr = getJSTDateString(new Date(row.date));
       return rowDateStr === dateStr ? { ...row, startTime: timeStr } : row;
     });
     setAttendanceData(newData);
-
     try {
       await axios.post(
         "http://localhost:5000/api/attendance-records/punch-in",
@@ -127,20 +118,16 @@ const TimecardPage = () => {
 
   const handleEnd = async () => {
     if (status !== "出勤中") return;
-
     const now = new Date();
     setEndTime(now);
     setStatus("退勤済み");
-
     const dateStr = getJSTDateString(now);
     const timeStr = getJSTTimeString(now);
-
     const newData = attendanceData.map((row) => {
       const rowDateStr = getJSTDateString(new Date(row.date));
       return rowDateStr === dateStr ? { ...row, endTime: timeStr } : row;
     });
     setAttendanceData(newData);
-
     try {
       await axios.put(
         "http://localhost:5000/api/attendance-records/punch-out",
@@ -168,38 +155,70 @@ const TimecardPage = () => {
   return (
     <>
       <div
-        className="card p-4 shadow-sm mb-5"
-        style={{ maxWidth: "400px", margin: "auto" }}
+        className="card shadow-sm mb-4"
+        style={{
+          maxWidth: 360,
+          margin: "0 auto",
+          padding: "16px",
+          backgroundColor: "#f0f8ff",
+          fontFamily: "Courier New",
+          border: "2px solid #007bff",
+        }}
       >
-        <h5 className="text-center mb-3">
+        <h5 className="text-center fw-bold mb-2" style={{ fontSize: "16px" }}>
           {currentTime.toLocaleString("ja-JP")}
         </h5>
-        <h6 className="text-center mb-4">{userName}</h6>
+        <h6 className="text-center text-dark mb-3" style={{ fontSize: "14px" }}>
+          {userName}
+        </h6>
 
-        <div className="mb-3">
-          <p>出勤：{formatTime(startTime)}</p>
-          <p>退勤：{formatTime(endTime)}</p>
+        <table
+          className="table table-bordered text-center mb-3"
+          style={{ fontSize: "16px", marginBottom: 0 }}
+        >
+          <thead className="table-light">
+            <tr>
+              <th style={{ width: "50%" }}>出勤</th>
+              <th style={{ width: "50%" }}>退勤</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{formatTime(startTime)}</td>
+              <td>{formatTime(endTime)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="mt-3 d-grid gap-2">
+          {status === "未出勤" && (
+            <button className="btn btn-primary" onClick={handleStart}>
+              出勤する
+            </button>
+          )}
+          {status === "出勤中" && (
+            <button className="btn btn-danger" onClick={handleEnd}>
+              退勤する
+            </button>
+          )}
+          {status === "退勤済み" && (
+            <div
+              className="text-center mb-0"
+              style={{
+                backgroundColor: "#e9ecef",
+                color: "#6c757d",
+                padding: "10px",
+                borderRadius: "4px",
+                fontWeight: "bold",
+              }}
+            >
+              お疲れさまでした！
+            </div>
+          )}
         </div>
-
-        {status === "未出勤" && (
-          <button className="btn btn-primary w-100 mb-2" onClick={handleStart}>
-            出勤する
-          </button>
-        )}
-
-        {status === "出勤中" && (
-          <button className="btn btn-danger w-100 mb-2" onClick={handleEnd}>
-            退勤する
-          </button>
-        )}
-
-        {status === "退勤済み" && (
-          <div className="alert alert-success text-center" role="alert">
-            お疲れさまでした！
-          </div>
-        )}
       </div>
-      <div className="text-center">
+
+      <div className="text-center mt-3">
         <button
           className="btn btn-outline-secondary"
           onClick={() => navigate(`/report?user_id=${userId}`)}
@@ -207,12 +226,6 @@ const TimecardPage = () => {
           勤怠入力画面へ
         </button>
       </div>
-
-      {/* <TimeReportPage
-        userId={userId}
-        attendanceData={attendanceData}
-        setAttendanceData={setAttendanceData}
-      /> */}
     </>
   );
 };

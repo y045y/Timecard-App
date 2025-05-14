@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import TimecardPage from "./pages/TimecardPage";
 import TimeReportPage from "./pages/TimeReportPage";
@@ -7,6 +7,9 @@ import AdminSettingsPage from "./pages/AdminSettingsPage";
 import AdminAttendancePage from "./pages/AdminAttendancePage";
 
 function App() {
+  const [userId, setUserId] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
   return (
     <Router>
       <div className="container mt-4">
@@ -15,19 +18,21 @@ function App() {
           <Link to="/" className="btn btn-outline-primary">
             ホーム
           </Link>
-          <Link to="/timecard?user_id=2" className="btn btn-outline-secondary">
-            勤怠入力
-          </Link>
-          <Link to="/admin/attendance" className="btn btn-outline-danger">
-            勤怠管理（管理者）
-          </Link>
+          {isAdmin && (
+            <Link to="/admin/attendance" className="btn btn-outline-danger">
+              勤怠管理（管理者）
+            </Link>
+          )}
         </nav>
 
         {/* ルーティング */}
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/timecard" element={<TimecardPage />} />
-          <Route path="/report" element={<TimeReportPage />} />
+          <Route
+            path="/"
+            element={<HomePage setUserId={setUserId} setIsAdmin={setIsAdmin} />}
+          />
+          <Route path="/timecard" element={<TimecardPage userId={userId} />} />
+          <Route path="/report" element={<TimeReportPage userId={userId} />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
           <Route path="/admin/attendance" element={<AdminAttendancePage />} />
         </Routes>

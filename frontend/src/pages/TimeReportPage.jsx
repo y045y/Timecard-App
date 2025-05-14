@@ -289,7 +289,10 @@ const TimeReportPage = () => {
 
   return (
     <div className="container mt-5">
-      <h2 className="text-center mb-4">
+      <h2
+        className="text-center mb-4"
+        style={{ fontWeight: "bold", borderBottom: "2px solid #007bff" }}
+      >
         勤怠入力画面（{closingStartDay}日締め）
       </h2>
 
@@ -318,12 +321,25 @@ const TimeReportPage = () => {
                     <td style={{ backgroundColor, ...tableCellStyle }}>
                       {formatDateWithWeekday(row.date)}
                     </td>
-                    <td style={{ backgroundColor, ...tableCellStyle }}>
+                    <td
+                      style={{
+                        backgroundColor,
+                        ...tableCellStyle,
+                        fontFamily: "Courier New",
+                      }}
+                    >
                       {row.startTime || "--:--"}
                     </td>
-                    <td style={{ backgroundColor, ...tableCellStyle }}>
+                    <td
+                      style={{
+                        backgroundColor,
+                        ...tableCellStyle,
+                        fontFamily: "Courier New",
+                      }}
+                    >
                       {row.endTime || "--:--"}
                     </td>
+
                     <td style={{ backgroundColor, ...tableCellStyle }}>
                       <select
                         className="form-select text-center"
@@ -419,16 +435,22 @@ const TimeReportPage = () => {
                     </select>
                   </div>
                   <div className="col">
-                    <input
-                      type="number"
-                      step="0.1"
-                      className="form-control"
-                      placeholder="h"
+                    <select
+                      className="form-select"
                       value={summary.holidayWorkHours}
                       onChange={(e) =>
                         handleSummaryChange("holidayWorkHours", e.target.value)
                       }
-                    />
+                    >
+                      {[...Array(21)].map((_, i) => {
+                        const value = (i * 0.5).toFixed(1);
+                        return (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        );
+                      })}
+                    </select>
                   </div>
                 </div>
               </td>
@@ -456,16 +478,22 @@ const TimeReportPage = () => {
                     </select>
                   </div>
                   <div className="col">
-                    <input
-                      type="number"
-                      step="0.1"
-                      className="form-control"
-                      placeholder="h"
+                    <select
+                      className="form-select"
                       value={summary.lateHours}
                       onChange={(e) =>
                         handleSummaryChange("lateHours", e.target.value)
                       }
-                    />
+                    >
+                      {[...Array(21)].map((_, i) => {
+                        const value = (i * 0.5).toFixed(1);
+                        return (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        );
+                      })}
+                    </select>
                   </div>
                 </div>
               </td>
@@ -493,16 +521,22 @@ const TimeReportPage = () => {
                     </select>
                   </div>
                   <div className="col">
-                    <input
-                      type="number"
-                      step="0.1"
-                      className="form-control"
-                      placeholder="h"
+                    <select
+                      className="form-select"
                       value={summary.earlyLeaveHours}
                       onChange={(e) =>
                         handleSummaryChange("earlyLeaveHours", e.target.value)
                       }
-                    />
+                    >
+                      {[...Array(21)].map((_, i) => {
+                        const value = (i * 0.5).toFixed(1);
+                        return (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        );
+                      })}
+                    </select>
                   </div>
                 </div>
               </td>

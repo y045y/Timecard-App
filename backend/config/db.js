@@ -1,16 +1,18 @@
 // config/db.js
+require("dotenv").config();
+console.log("✅ DB_SERVER (直接確認):", process.env.DB_SERVER || "環境変数なし");
 
 const sql = require("mssql");
 
 const dbConfig = {
-  user: "sa",
-  password: "Hsadmin9007",
-  server: "localhost", // ★PC名ではなくlocalhostにする（IP直打ちでもいい）
-  database: "Kintai",
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  server: process.env.DB_SERVER,
+  database: process.env.DB_DATABASE,
   options: {
     encrypt: false,
     trustServerCertificate: true,
-    instanceName: "SQLEXPRESS01", // ★ここにインスタンス名を書く！！
+    // instanceName: process.env.DB_INSTANCE,
   },
 };
 
