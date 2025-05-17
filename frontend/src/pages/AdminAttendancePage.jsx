@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import axios from "axios";
 import TimeReportView from "./TimeReportView";
+import { isHoliday } from "@holiday-jp/holiday_jp";
 
 const AdminAttendancePage = () => {
   const [users, setUsers] = useState([]);
@@ -11,42 +12,26 @@ const AdminAttendancePage = () => {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const loadInitial = async () => {
+    (async () => {
       try {
-        const userRes = await axios.get("http://localhost:5000/api/users");
+        const [userRes, settingRes] = await Promise.all([
+          axios.get("http://localhost:5000/api/users"),
+          axios.get("http://localhost:5000/api/settings/closing-day"),
+        ]);
+
         const userList = Array.isArray(userRes.data) ? userRes.data : [];
-
-        if (!Array.isArray(userList) || userList.length === 0) {
-          console.warn("⚠️ ユーザー一覧が空か不正な形式です:", userRes.data);
-          setUsers([]);
-          setSelectedUserId(null);
-          return;
-        }
-
         setUsers(userList);
-        setSelectedUserId(userList[0].id);
+        setSelectedUserId(userList[0]?.id || null);
 
-        const settingRes = await axios.get(
-          "http://localhost:5000/api/settings/closing-day"
-        );
-        if (
-          settingRes.data &&
-          typeof settingRes.data.closing_start_day !== "undefined"
-        ) {
-          const closingStart = parseInt(settingRes.data.closing_start_day, 10);
-          setClosingDay(isNaN(closingStart) ? 26 : closingStart);
-        } else {
-          console.warn("⚠️ 締め日設定が取得できませんでした:", settingRes.data);
-          setClosingDay(26);
-        }
+        const closingStart = parseInt(settingRes.data.closing_start_day, 10);
+        setClosingDay(isNaN(closingStart) ? 26 : closingStart);
       } catch (err) {
-        console.warn("⚠️ ユーザーが取得できませんでした", err);
+        console.warn("⚠️ 初期データ取得失敗", err);
         setUsers([]);
         setSelectedUserId(null);
         setClosingDay(26);
       }
-    };
-    loadInitial();
+    })();
   }, []);
 
   useEffect(() => {
@@ -68,24 +53,34 @@ const AdminAttendancePage = () => {
       const end = new Date(year, month + 1, closingDay - 1);
 
       const dateList = [];
-      let current = new Date(start);
-      while (current <= end) {
-        dateList.push(new Date(current));
-        current.setDate(current.getDate() + 1);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dateList.push(new Date(d));
       }
 
       try {
-        const attendRes = await axios.get(
-          `http://localhost:5000/api/attendance-records?user_id=${selectedUserId}`
-        );
+        const [attendRes, sumRes] = await Promise.all([
+          axios.get(
+            `http://localhost:5000/api/attendance-records?user_id=${selectedUserId}`
+          ),
+          axios.get(
+            `http://localhost:5000/api/self-reports?month=${year}-${String(
+              month + 1
+            ).padStart(2, "0")}&user_id=${selectedUserId}`
+          ),
+        ]);
 
         const records = Array.isArray(attendRes.data) ? attendRes.data : [];
-
         const attendance = dateList.map((date) => {
           const strDate = date.toISOString().split("T")[0];
           const match = records.find(
             (r) => r.attendance_date.split("T")[0] === strDate
           );
+
+          const day = date.getDay();
+          let bgColor = "";
+          if (isHoliday(date) || day === 0) bgColor = "#ffe5e5";
+          else if (day === 6) bgColor = "#e5f1ff";
+
           return match
             ? {
                 ...match,
@@ -95,6 +90,7 @@ const AdminAttendancePage = () => {
                 overtime: match.overtime_hours?.toFixed(1) || "0.0",
                 paidLeave: match.paid_leave_days?.toFixed(1) || "",
                 note: match.note || "",
+                backgroundColor: bgColor,
               }
             : {
                 date,
@@ -103,15 +99,12 @@ const AdminAttendancePage = () => {
                 overtime: "0.0",
                 paidLeave: "",
                 note: "",
+                backgroundColor: bgColor,
               };
         });
 
         setAttendanceData(attendance);
 
-        const reportMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
-        const sumRes = await axios.get(
-          `http://localhost:5000/api/self-reports?month=${reportMonth}&user_id=${selectedUserId}`
-        );
         const rec = sumRes.data || {};
         setSummary({
           holidayWorkCount: rec.holiday_work_count?.toFixed(1) || "0.0",
@@ -123,7 +116,7 @@ const AdminAttendancePage = () => {
           summaryNote: rec.note || "",
         });
       } catch (err) {
-        console.error("❌ ユーザーデータ取得エラー:", err);
+        console.error("❌ 勤怠/サマリーデータ取得エラー", err);
         setAttendanceData([]);
         setSummary({});
       }
@@ -132,7 +125,7 @@ const AdminAttendancePage = () => {
     loadData();
   }, [selectedUserId, closingDay]);
 
-  const handleSaveSetting = async () => {
+  const handleSaveSetting = useCallback(async () => {
     if (closingDay < 1 || closingDay > 31) return alert("1〜31日で設定してね");
     try {
       await axios.post("http://localhost:5000/api/settings/closing-day", {
@@ -144,24 +137,31 @@ const AdminAttendancePage = () => {
       console.error("❌ 締め日保存エラー:", err);
       alert("❌ 保存に失敗しました");
     }
-  };
+  }, [closingDay]);
 
-  const overtimeSum = attendanceData.reduce(
-    (sum, r) => sum + (parseFloat(r.overtime) || 0),
-    0
+  const overtimeSum = useMemo(
+    () =>
+      attendanceData.reduce((sum, r) => sum + (parseFloat(r.overtime) || 0), 0),
+    [attendanceData]
   );
-  const paidLeaveSum = attendanceData.reduce(
-    (sum, r) => sum + (parseFloat(r.paidLeave) || 0),
-    0
+  const paidLeaveSum = useMemo(
+    () =>
+      attendanceData.reduce(
+        (sum, r) => sum + (parseFloat(r.paidLeave) || 0),
+        0
+      ),
+    [attendanceData]
   );
 
-  const handleRowChange = (index, newRow) => {
-    const updated = [...attendanceData];
-    updated[index] = newRow;
-    setAttendanceData(updated);
-  };
+  const handleRowChange = useCallback((index, newRow) => {
+    setAttendanceData((prev) => {
+      const updated = [...prev];
+      updated[index] = newRow;
+      return updated;
+    });
+  }, []);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     try {
       await axios.put(
         "http://localhost:5000/api/attendance-records/update-all",
@@ -195,7 +195,7 @@ const AdminAttendancePage = () => {
       console.error("❌ 勤怠保存エラー:", err);
       alert("❌ 保存に失敗しました");
     }
-  };
+  }, [attendanceData, summary, selectedUserId, overtimeSum, paidLeaveSum]);
 
   return (
     <div className="container mt-4">

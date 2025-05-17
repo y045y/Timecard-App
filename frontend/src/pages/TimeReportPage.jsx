@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import axios from "axios";
 import { useSearchParams } from "react-router-dom";
-import { isHoliday } from "@holiday-jp/holiday_jp";
+// import { isHoliday } from "@holiday-jp/holiday_jp";
 import { getJSTDateString } from "../utils/timeFormatter";
+import DailyRow from "../components/DailyRow"; // パスは適宜修正
 
 function getDateRangeForMonth(baseMonth, startDay = 26) {
   const [year, month] = baseMonth.split("-").map(Number);
@@ -14,6 +15,7 @@ function getDateRangeForMonth(baseMonth, startDay = 26) {
 const TimeReportPage = () => {
   const [searchParams] = useSearchParams();
   const userId = parseInt(searchParams.get("user_id"), 10);
+  const [userName, setUserName] = useState("");
 
   const [attendanceData, setAttendanceData] = useState([]);
   const [summary, setSummary] = useState({
@@ -28,6 +30,7 @@ const TimeReportPage = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [closingStartDay, setClosingStartDay] = useState(26);
+  const firstRowRef = useRef(null); // ← 最初の行への参照
 
   const getCurrentReportMonth = () => {
     const now = new Date();
@@ -136,19 +139,98 @@ const TimeReportPage = () => {
       try {
         setLoading(true);
         const reportMonth = getCurrentReportMonth();
-        const settingRes = await axios.get(
-          "http://localhost:5000/api/settings/closing-day"
-        );
+
+        const [userRes, settingRes, attendanceRes, summaryRes] =
+          await Promise.all([
+            axios.get("http://localhost:5000/api/users"),
+            axios.get("http://localhost:5000/api/settings/closing-day"),
+            axios.get(
+              `http://localhost:5000/api/attendance-records?user_id=${userId}`
+            ),
+            axios.get(
+              `http://localhost:5000/api/self-reports?month=${reportMonth}&user_id=${userId}`
+            ),
+          ]);
+
+        const foundUser = userRes.data.find((u) => u.id === userId);
+        setUserName(foundUser?.name || `ユーザーID: ${userId}`);
+
         const startDay = parseInt(settingRes.data.closing_start_day, 10);
         setClosingStartDay(startDay);
-
         const { start, end } = getDateRangeForMonth(reportMonth, startDay);
 
-        // ⏱ APIを並列で呼び出す
-        await Promise.all([
-          fetchAttendance(start, end),
-          fetchSummary(reportMonth),
-        ]);
+        // 勤怠データ整形
+        const updatedData = (function () {
+          const rangeDates = [];
+          let current = new Date(start);
+          while (current <= end) {
+            rangeDates.push(new Date(current));
+            current.setDate(current.getDate() + 1);
+          }
+
+          return rangeDates.map((date) => {
+            const rowDateStr = getJSTDateString(date);
+            const match = attendanceRes.data.find(
+              (r) => getJSTDateString(r.attendance_date) === rowDateStr
+            );
+            return match
+              ? {
+                  date,
+                  id: match.id,
+                  startTime: match.start_time || "",
+                  endTime: match.end_time || "",
+                  overtime:
+                    match.overtime_hours != null
+                      ? Number(match.overtime_hours).toFixed(1)
+                      : "0.0",
+                  paidLeave:
+                    match.paid_leave_days != null
+                      ? Number(match.paid_leave_days).toFixed(1)
+                      : "",
+                  note: match.note || "",
+                }
+              : {
+                  date,
+                  startTime: "",
+                  endTime: "",
+                  overtime: "0.0",
+                  paidLeave: "",
+                  note: "",
+                };
+          });
+        })();
+        setAttendanceData(updatedData);
+
+        const s = summaryRes.data;
+        setSummary(
+          !s || Object.keys(s).length === 0
+            ? {
+                holidayWorkCount: "0.0",
+                holidayWorkHours: "0.0",
+                lateCount: "0.0",
+                lateHours: "0.0",
+                earlyLeaveCount: "0.0",
+                earlyLeaveHours: "0.0",
+                summaryNote: "",
+              }
+            : {
+                holidayWorkCount: Number(s.holiday_work_count || 0).toFixed(1),
+                holidayWorkHours: Number(s.holiday_work_hours || 0).toFixed(1),
+                lateCount: Number(s.late_count || 0).toFixed(1),
+                lateHours: Number(s.late_hours || 0).toFixed(1),
+                earlyLeaveCount: Number(s.early_leave_count || 0).toFixed(1),
+                earlyLeaveHours: Number(s.early_leave_hours || 0).toFixed(1),
+                summaryNote: s.note || "",
+              }
+        );
+
+        // スクロール（初期フォーカス）
+        setTimeout(() => {
+          firstRowRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }, 300);
       } catch (err) {
         console.error("❌ 初期データ取得失敗", err);
       } finally {
@@ -248,36 +330,69 @@ const TimeReportPage = () => {
     }
   };
 
-  const formatDateWithWeekday = (date) => {
-    const d = new Date(date);
-    const month = d.getMonth() + 1;
-    const day = d.getDate();
-    const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
-    const weekday = weekdays[d.getDay()];
-    return `${month}/${day} (${weekday})`;
-  };
+  // const formatDateWithWeekday = (date) => {
+  //   const d = new Date(date);
+  //   const month = d.getMonth() + 1;
+  //   const day = d.getDate();
+  //   const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+  //   const weekday = weekdays[d.getDay()];
+  //   return `${month}/${day} (${weekday})`;
+  // };
 
-  const compactSelectStyle = {
-    fontWeight: "bold",
-    width: "55px",
-    margin: "0 auto",
-    height: "28px",
-    fontSize: "12px",
-    padding: "2px 6px",
-  };
+  // const compactSelectStyle = {
+  //   fontWeight: "bold",
+  //   width: "70px",
+  //   height: "28px", // ← 28 → 24 に変更
+  //   fontSize: "12px",
+  //   padding: "2px 4px",
+  //   margin: "0 auto",
+  // };
 
-  const freeInputStyle = {
-    backgroundColor: "#fff9c4",
-    border: "2px solid #007bff",
-    fontSize: "12px",
-    fontWeight: "bold",
-    height: "28px",
-    padding: "2px 6px",
-  };
+  // const freeInputStyle = {
+  //   backgroundColor: "#fff9c4",
+  //   border: "2px solid #007bff",
+  //   fontSize: "12px",
+  //   fontWeight: "bold",
+  //   height: "24px", // ← 高さを縮める
+  //   padding: "2px 4px", // ← paddingも詰める
+  // };
 
-  const tableCellStyle = {
-    padding: "4px 8px",
-  };
+  // const tableCellStyle = {
+  //   padding: "2px 4px", // ← デフォルトより縮小
+  //   verticalAlign: "middle", // ← 高さを中央に寄せる（縦の広がり防止）
+  // };
+  // const compactSelectStyle = useMemo(
+  //   () => ({
+  //     fontWeight: "bold",
+  //     width: "70px",
+  //     height: "28px",
+  //     fontSize: "12px",
+  //     padding: "2px 4px",
+  //     margin: "0 auto",
+  //   }),
+  //   []
+  // );
+
+  const freeInputStyle = useMemo(
+    () => ({
+      backgroundColor: "#fff9c4",
+      border: "2px solid #007bff",
+      fontSize: "12px",
+      fontWeight: "bold",
+      height: "24px",
+      padding: "2px 4px",
+    }),
+    []
+  );
+
+  const tableCellStyle = useMemo(
+    () => ({
+      padding: "2px 4px",
+      verticalAlign: "middle",
+    }),
+    []
+  );
+
   if (loading) {
     return (
       <div className="container mt-5 text-center">
@@ -289,6 +404,8 @@ const TimeReportPage = () => {
 
   return (
     <div className="container mt-5">
+      <h5 className="text-center text-secondary mb-4">ユーザー: {userName}</h5>
+
       <h2
         className="text-center mb-4"
         style={{ fontWeight: "bold", borderBottom: "2px solid #007bff" }}
@@ -308,99 +425,25 @@ const TimeReportPage = () => {
             </tr>
           </thead>
           <tbody>
-            {attendanceData.map((row, index) => {
-              const weekday = new Date(row.date).getDay();
-              let backgroundColor = "inherit";
-              if (isHoliday(new Date(row.date))) backgroundColor = "#ffe5e5";
-              else if (weekday === 0) backgroundColor = "#ffe5e5";
-              else if (weekday === 6) backgroundColor = "#e5f1ff";
+            {attendanceData.map((row, index) => (
+              <DailyRow
+                key={index}
+                row={row}
+                index={index}
+                handleChange={handleChange}
+                firstRowRef={firstRowRef}
+              />
+            ))}
 
-              return (
-                <React.Fragment key={index}>
-                  <tr>
-                    <td style={{ backgroundColor, ...tableCellStyle }}>
-                      {formatDateWithWeekday(row.date)}
-                    </td>
-                    <td
-                      style={{
-                        backgroundColor,
-                        ...tableCellStyle,
-                        fontFamily: "Courier New",
-                      }}
-                    >
-                      {row.startTime || "--:--"}
-                    </td>
-                    <td
-                      style={{
-                        backgroundColor,
-                        ...tableCellStyle,
-                        fontFamily: "Courier New",
-                      }}
-                    >
-                      {row.endTime || "--:--"}
-                    </td>
-
-                    <td style={{ backgroundColor, ...tableCellStyle }}>
-                      <select
-                        className="form-select text-center"
-                        style={compactSelectStyle}
-                        value={row.overtime}
-                        onChange={(e) =>
-                          handleChange(index, "overtime", e.target.value)
-                        }
-                      >
-                        {[...Array(21)].map((_, i) => {
-                          const value = (i * 0.5).toFixed(1);
-                          return (
-                            <option key={value} value={value}>
-                              {value}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </td>
-                    <td style={{ backgroundColor, ...tableCellStyle }}>
-                      <select
-                        className="form-select text-center"
-                        style={compactSelectStyle}
-                        value={row.paidLeave || "0.0"} // ← ここ修正
-                        onChange={(e) =>
-                          handleChange(index, "paidLeave", e.target.value)
-                        }
-                      >
-                        {["", "0.5", "1.0"].map((value) => (
-                          <option key={value} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td
-                      colSpan="5"
-                      style={{ backgroundColor, ...tableCellStyle }}
-                    >
-                      <input
-                        type="text"
-                        className="form-control"
-                        style={{ ...freeInputStyle, width: "100%" }}
-                        placeholder="備考を入力"
-                        value={row.note}
-                        onChange={(e) =>
-                          handleChange(index, "note", e.target.value)
-                        }
-                      />
-                    </td>
-                  </tr>
-                </React.Fragment>
-              );
-            })}
+            {/* ✅ ここに余白行を追加 */}
+            <tr>
+              <td colSpan="5" style={{ height: "48px", border: "none" }}></td>
+            </tr>
           </tbody>
         </table>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-3">
         <h5>【合計欄】</h5>
         <table className="table table-bordered text-center">
           <tbody>
@@ -557,9 +600,15 @@ const TimeReportPage = () => {
           </tbody>
         </table>
       </div>
+      {/* ✅ 固定ボタンと重ならないための余白をここに追加 */}
+      <div style={{ height: "80px" }}></div>
 
-      <div className="text-center mt-4">
-        <button className="btn btn-primary w-50" onClick={handleSubmit}>
+      {/* ⬇ 更新ボタンを画面下に固定 */}
+      <div
+        className="position-fixed bottom-0 start-0 end-0 bg-white border-top text-center p-3"
+        style={{ zIndex: 999 }}
+      >
+        <button className="btn btn-primary w-75" onClick={handleSubmit}>
           【更新】
         </button>
       </div>

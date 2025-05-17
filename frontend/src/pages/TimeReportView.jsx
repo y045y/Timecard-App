@@ -30,6 +30,7 @@ const TimeReportView = ({
       </option>
     ));
   }, []);
+
   const formatDateWithWeekday = (dateStr) => {
     const date = new Date(dateStr);
     const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
@@ -100,9 +101,11 @@ const TimeReportView = ({
           {attendanceData.map((row, index) => {
             const bgColor = getRowColor(row.date);
             return (
-              <tr key={index} style={{ backgroundColor: bgColor }}>
-                <td>{formatDateWithWeekday(row.date)}</td>
-                <td>
+              <tr key={index}>
+                <td style={{ backgroundColor: bgColor }}>
+                  {formatDateWithWeekday(row.date)}
+                </td>
+                <td style={{ backgroundColor: bgColor }}>
                   <input
                     type="time"
                     className="form-control"
@@ -112,7 +115,7 @@ const TimeReportView = ({
                     }
                   />
                 </td>
-                <td>
+                <td style={{ backgroundColor: bgColor }}>
                   <input
                     type="time"
                     className="form-control"
@@ -122,7 +125,7 @@ const TimeReportView = ({
                     }
                   />
                 </td>
-                <td>
+                <td style={{ backgroundColor: bgColor }}>
                   <select
                     className="form-select text-center"
                     style={compactSelectStyle}
@@ -134,7 +137,7 @@ const TimeReportView = ({
                     {overtimeOptions}
                   </select>
                 </td>
-                <td>
+                <td style={{ backgroundColor: bgColor }}>
                   <select
                     className="form-select text-center"
                     style={compactSelectStyle}
@@ -146,7 +149,7 @@ const TimeReportView = ({
                     {paidLeaveOptions}
                   </select>
                 </td>
-                <td>
+                <td style={{ backgroundColor: bgColor }}>
                   <input
                     type="text"
                     className="form-control"

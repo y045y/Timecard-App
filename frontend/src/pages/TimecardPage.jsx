@@ -1,55 +1,45 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { getJSTDateString, getJSTTimeString } from "../utils/timeFormatter";
 
-const generateDates = () => {
-  const start = new Date("2025-04-26");
-  const end = new Date("2025-05-25");
-  const days = [];
-  while (start <= end) {
-    days.push({
-      date: new Date(start),
-      startTime: "",
-      endTime: "",
-      overtime: "0.0",
-      paidLeave: "",
-      note: "",
-    });
-    start.setDate(start.getDate() + 1);
-  }
-  return days;
-};
-
 const TimecardPage = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const userId = parseInt(searchParams.get("user_id"), 10);
+  const navigate = useNavigate();
 
-  const [attendanceData, setAttendanceData] = useState(generateDates());
+  const [userName, setUserName] = useState("");
   const [currentTime, setCurrentTime] = useState(new Date());
   const [startTime, setStartTime] = useState(null);
   const [endTime, setEndTime] = useState(null);
   const [status, setStatus] = useState("未出勤");
-  const [userName, setUserName] = useState("");
+  const [loading, setLoading] = useState(true);
 
+  // 💡 現在時刻の秒更新
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
+  // ✅ 出勤状況とユーザー名を並列で取得
   useEffect(() => {
-    const fetchTodayStatus = async () => {
-      const todayStr = getJSTDateString(new Date());
+    const fetchData = async () => {
       try {
-        const res = await axios.get(
-          `http://localhost:5000/api/attendance-records?user_id=${userId}`
-        );
-        const todayRecord = res.data.find((r) =>
+        const [usersRes, attendanceRes] = await Promise.all([
+          axios.get("http://localhost:5000/api/users"),
+          axios.get(
+            `http://localhost:5000/api/attendance-records?user_id=${userId}`
+          ),
+        ]);
+
+        const user = usersRes.data.find((u) => u.id === userId);
+        setUserName(user?.name || `ユーザーID: ${userId}`);
+
+        const todayStr = getJSTDateString(new Date());
+        const todayRecord = attendanceRes.data.find((r) =>
           r.attendance_date?.startsWith(todayStr)
         );
+
         if (todayRecord?.start_time && todayRecord?.end_time) {
           setStatus("退勤済み");
           setStartTime(
@@ -61,45 +51,24 @@ const TimecardPage = () => {
           setStartTime(
             new Date(`1970-01-01T${todayRecord.start_time}:00+09:00`)
           );
-        } else {
-          setStatus("未出勤");
         }
       } catch (err) {
-        console.error("❌ 打刻状況の取得に失敗", err);
+        console.error("❌ データ取得失敗:", err);
+        setUserName(`ユーザーID: ${userId}`);
+      } finally {
+        setLoading(false);
       }
     };
-    fetchTodayStatus();
+
+    fetchData();
   }, [userId]);
 
-  useEffect(() => {
-    axios
-      .get("http://localhost:5000/api/users")
-      .then((res) => {
-        const user = res.data.find((u) => u.id === userId);
-        setUserName(user?.name || `ユーザーID: ${userId}`);
-      })
-      .catch((err) => {
-        console.error("❌ ユーザー名取得失敗:", err);
-        setUserName(`ユーザーID: ${userId}`);
-      });
-  }, [userId]);
-
-  if (!userId || isNaN(userId)) {
-    return <div className="alert alert-danger">❌ user_idが無効です</div>;
-  }
-
-  const handleStart = async () => {
+  const handleStart = useCallback(async () => {
     if (status !== "未出勤") return;
     const now = new Date();
-    setStartTime(now);
-    setStatus("出勤中");
     const dateStr = getJSTDateString(now);
     const timeStr = getJSTTimeString(now);
-    const newData = attendanceData.map((row) => {
-      const rowDateStr = getJSTDateString(new Date(row.date));
-      return rowDateStr === dateStr ? { ...row, startTime: timeStr } : row;
-    });
-    setAttendanceData(newData);
+
     try {
       await axios.post(
         "http://localhost:5000/api/attendance-records/punch-in",
@@ -109,25 +78,21 @@ const TimecardPage = () => {
           start_time: timeStr,
         }
       );
+      setStartTime(now);
+      setStatus("出勤中");
       console.log("✅ 出勤打刻成功:", { dateStr, timeStr });
     } catch (err) {
-      console.error("❌ 出勤登録失敗:", err);
+      console.error("❌ 出勤打刻失敗:", err);
       alert("出勤打刻に失敗しました");
     }
-  };
+  }, [status, userId]);
 
-  const handleEnd = async () => {
+  const handleEnd = useCallback(async () => {
     if (status !== "出勤中") return;
     const now = new Date();
-    setEndTime(now);
-    setStatus("退勤済み");
     const dateStr = getJSTDateString(now);
     const timeStr = getJSTTimeString(now);
-    const newData = attendanceData.map((row) => {
-      const rowDateStr = getJSTDateString(new Date(row.date));
-      return rowDateStr === dateStr ? { ...row, endTime: timeStr } : row;
-    });
-    setAttendanceData(newData);
+
     try {
       await axios.put(
         "http://localhost:5000/api/attendance-records/punch-out",
@@ -137,12 +102,14 @@ const TimecardPage = () => {
           end_time: timeStr,
         }
       );
+      setEndTime(now);
+      setStatus("退勤済み");
       console.log("✅ 退勤打刻成功:", { dateStr, timeStr });
     } catch (err) {
-      console.error("❌ 退勤登録失敗:", err);
+      console.error("❌ 退勤打刻失敗:", err);
       alert("退勤打刻に失敗しました");
     }
-  };
+  }, [status, userId]);
 
   const formatTime = (time) => {
     if (!time) return "--:--:--";
@@ -152,6 +119,25 @@ const TimecardPage = () => {
     return `${h}:${m}:${s}`;
   };
 
+  if (!userId || isNaN(userId)) {
+    return (
+      <div className="alert alert-danger mt-5 text-center">
+        ❌ user_idが無効です
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center vh-100">
+        <div className="text-center">
+          <div className="spinner-border text-primary mb-3" role="status" />
+          <p className="text-muted">データを読み込んでいます...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div
@@ -159,7 +145,7 @@ const TimecardPage = () => {
         style={{
           maxWidth: 360,
           margin: "0 auto",
-          padding: "16px",
+          padding: 16,
           backgroundColor: "#f0f8ff",
           fontFamily: "Courier New",
           border: "2px solid #007bff",
@@ -174,7 +160,7 @@ const TimecardPage = () => {
 
         <table
           className="table table-bordered text-center mb-3"
-          style={{ fontSize: "16px", marginBottom: 0 }}
+          style={{ fontSize: "16px" }}
         >
           <thead className="table-light">
             <tr>

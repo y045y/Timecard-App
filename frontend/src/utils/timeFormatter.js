@@ -31,14 +31,13 @@ export function toSQLTimeDate(timeStr) {
 /**
  * Date または ISO文字列 から YYYY-MM-DD を返す（JSTローカル）
  */
-export const getJSTDateString = (date) => {
-  if (!(date instanceof Date)) {
-    date = new Date(date); // ISO文字列も対応
-  }
+export const getJSTDateString = (input) => {
+  const date = new Date(input);
+  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000); // JST補正
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const year = jst.getUTCFullYear();
+  const month = String(jst.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(jst.getUTCDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 };

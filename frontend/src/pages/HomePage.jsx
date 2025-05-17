@@ -4,13 +4,15 @@ import { useNavigate } from "react-router-dom";
 
 const HomePage = ({ setUserId, setIsAdmin }) => {
   const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     axios
       .get("http://localhost:5000/api/users")
       .then((res) => setUsers(res.data))
-      .catch((err) => console.error("❌ ユーザー取得失敗", err));
+      .catch((err) => console.error("❌ ユーザー取得失敗", err))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleUserClick = (user) => {
@@ -19,44 +21,57 @@ const HomePage = ({ setUserId, setIsAdmin }) => {
     navigate(`/timecard?user_id=${user.id}`);
   };
 
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center vh-100">
+        <div className="text-center">
+          <div className="spinner-border text-primary mb-3" role="status" />
+          <p className="text-muted">ユーザーを読み込んでいます...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      className="card shadow-sm mt-5"
+      className="card shadow-sm mt-5 mx-auto p-4"
       style={{
         maxWidth: 400,
-        margin: "0 auto",
-        padding: "20px",
         backgroundColor: "#f0f8ff",
         fontFamily: "Courier New, monospace",
         border: "2px solid #007bff",
       }}
     >
       <h2
-        className="text-center mb-3"
-        style={{ fontSize: "20px", fontWeight: "bold", color: "#000" }}
+        className="text-center mb-3 fw-bold text-dark"
+        style={{ fontSize: 20 }}
       >
         勤怠管理システム
       </h2>
-      <h6 className="text-center text-muted mb-4" style={{ fontSize: "14px" }}>
+      <h6 className="text-center text-muted mb-4" style={{ fontSize: 14 }}>
         出勤する人を選んでください：
       </h6>
+
       <div className="d-grid gap-3">
-        {users.map((user) => (
-          <button
-            key={user.id}
-            className="btn btn-primary btn-lg"
-            style={{
-              fontFamily: "Courier New, monospace",
-              borderRadius: "6px",
-              padding: "10px 0",
-              fontWeight: "bold",
-              fontSize: "16px",
-            }}
-            onClick={() => handleUserClick(user)}
-          >
-            {user.name}
-          </button>
-        ))}
+        {users.length === 0 ? (
+          <p className="text-center text-danger">ユーザーが見つかりません</p>
+        ) : (
+          users.map((user) => (
+            <button
+              key={user.id}
+              className="btn btn-primary btn-lg fw-bold"
+              style={{
+                fontFamily: "Courier New, monospace",
+                borderRadius: 6,
+                padding: "10px 0",
+                fontSize: 16,
+              }}
+              onClick={() => handleUserClick(user)}
+            >
+              {user.name}
+            </button>
+          ))
+        )}
       </div>
     </div>
   );
