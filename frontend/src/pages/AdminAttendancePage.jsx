@@ -3,6 +3,9 @@ import axios from "axios";
 import TimeReportView from "./TimeReportView";
 import { isHoliday } from "@holiday-jp/holiday_jp";
 
+// 環境変数でAPIのベースURLを切り替え（例: .env.production に設定）
+const API_BASE = import.meta.env.VITE_API_BASE || "";
+
 const AdminAttendancePage = () => {
   const [users, setUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
@@ -15,8 +18,8 @@ const AdminAttendancePage = () => {
     (async () => {
       try {
         const [userRes, settingRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/users"),
-          axios.get("http://localhost:5000/api/settings/closing-day"),
+          axios.get(`${API_BASE}/api/users`),
+          axios.get(`${API_BASE}/api/settings/closing-day`),
         ]);
 
         const userList = Array.isArray(userRes.data) ? userRes.data : [];
@@ -51,7 +54,6 @@ const AdminAttendancePage = () => {
 
       const start = new Date(year, month, closingDay);
       const end = new Date(year, month + 1, closingDay - 1);
-
       const dateList = [];
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         dateList.push(new Date(d));
@@ -60,10 +62,10 @@ const AdminAttendancePage = () => {
       try {
         const [attendRes, sumRes] = await Promise.all([
           axios.get(
-            `http://localhost:5000/api/attendance-records?user_id=${selectedUserId}`
+            `${API_BASE}/api/attendance-records?user_id=${selectedUserId}`
           ),
           axios.get(
-            `http://localhost:5000/api/self-reports?month=${year}-${String(
+            `${API_BASE}/api/self-reports?month=${year}-${String(
               month + 1
             ).padStart(2, "0")}&user_id=${selectedUserId}`
           ),
@@ -128,7 +130,7 @@ const AdminAttendancePage = () => {
   const handleSaveSetting = useCallback(async () => {
     if (closingDay < 1 || closingDay > 31) return alert("1〜31日で設定してね");
     try {
-      await axios.post("http://localhost:5000/api/settings/closing-day", {
+      await axios.post(`${API_BASE}/api/settings/closing-day`, {
         closing_start_day: closingDay,
       });
       setMessage("✅ 締め日を保存しました");
@@ -164,7 +166,7 @@ const AdminAttendancePage = () => {
   const handleSubmit = useCallback(async () => {
     try {
       await axios.put(
-        "http://localhost:5000/api/attendance-records/update-all",
+        `${API_BASE}/api/attendance-records/update-all`,
         attendanceData.map((r) => ({
           ...r,
           user_id: selectedUserId,
@@ -176,7 +178,7 @@ const AdminAttendancePage = () => {
         now.getMonth() + 1
       ).padStart(2, "0")}`;
 
-      await axios.post("http://localhost:5000/api/self-reports", {
+      await axios.post(`${API_BASE}/api/self-reports`, {
         user_id: selectedUserId,
         report_month: reportMonth,
         total_overtime_hours: overtimeSum,

@@ -3,6 +3,8 @@ import axios from "axios";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { getJSTDateString, getJSTTimeString } from "../utils/timeFormatter";
 
+const API_BASE = import.meta.env.VITE_API_BASE || "";
+
 const TimecardPage = () => {
   const [searchParams] = useSearchParams();
   const userId = parseInt(searchParams.get("user_id"), 10);
@@ -15,21 +17,17 @@ const TimecardPage = () => {
   const [status, setStatus] = useState("未出勤");
   const [loading, setLoading] = useState(true);
 
-  // 💡 現在時刻の秒更新
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // ✅ 出勤状況とユーザー名を並列で取得
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [usersRes, attendanceRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/users"),
-          axios.get(
-            `http://localhost:5000/api/attendance-records?user_id=${userId}`
-          ),
+          axios.get(`${API_BASE}/api/users`),
+          axios.get(`${API_BASE}/api/attendance-records?user_id=${userId}`),
         ]);
 
         const user = usersRes.data.find((u) => u.id === userId);
@@ -70,17 +68,13 @@ const TimecardPage = () => {
     const timeStr = getJSTTimeString(now);
 
     try {
-      await axios.post(
-        "http://localhost:5000/api/attendance-records/punch-in",
-        {
-          user_id: userId,
-          attendance_date: dateStr,
-          start_time: timeStr,
-        }
-      );
+      await axios.post(`${API_BASE}/api/attendance-records/punch-in`, {
+        user_id: userId,
+        attendance_date: dateStr,
+        start_time: timeStr,
+      });
       setStartTime(now);
       setStatus("出勤中");
-      console.log("✅ 出勤打刻成功:", { dateStr, timeStr });
     } catch (err) {
       console.error("❌ 出勤打刻失敗:", err);
       alert("出勤打刻に失敗しました");
@@ -94,17 +88,13 @@ const TimecardPage = () => {
     const timeStr = getJSTTimeString(now);
 
     try {
-      await axios.put(
-        "http://localhost:5000/api/attendance-records/punch-out",
-        {
-          user_id: userId,
-          attendance_date: dateStr,
-          end_time: timeStr,
-        }
-      );
+      await axios.put(`${API_BASE}/api/attendance-records/punch-out`, {
+        user_id: userId,
+        attendance_date: dateStr,
+        end_time: timeStr,
+      });
       setEndTime(now);
       setStatus("退勤済み");
-      console.log("✅ 退勤打刻成功:", { dateStr, timeStr });
     } catch (err) {
       console.error("❌ 退勤打刻失敗:", err);
       alert("退勤打刻に失敗しました");

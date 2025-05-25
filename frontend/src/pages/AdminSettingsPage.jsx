@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
+const API_BASE = import.meta.env.VITE_API_BASE || "";
+
 const AdminSettingsPage = () => {
   const [closingDay, setClosingDay] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -9,7 +11,7 @@ const AdminSettingsPage = () => {
   useEffect(() => {
     const fetchClosingDay = async () => {
       try {
-        const res = await axios.get("/api/settings/closing-day");
+        const res = await axios.get(`${API_BASE}/api/settings/closing-day`);
         setClosingDay(res.data.closing_start_day);
       } catch (err) {
         console.error("❌ 締め日取得エラー", err);
@@ -27,13 +29,11 @@ const AdminSettingsPage = () => {
     setIsSaving(true);
     setMessage("");
     try {
-      await axios.post("http://localhost:5000/api/settings/closing-day", {
+      await axios.post("${API_BASE}/api/settings/closing-day", {
         closing_start_day: closingDay,
       });
       setMessage("✅ 締め日を保存しました");
-
-      // ✅ 保存完了後に画面を即リロード
-      window.location.reload();
+      window.location.reload(); // 保存後にリロード
     } catch (err) {
       console.error("❌ 保存エラー", err);
       setMessage("❌ 保存に失敗しました");
@@ -51,12 +51,11 @@ const AdminSettingsPage = () => {
       <input
         type="number"
         className="form-control mb-3"
-        value={closingDay ?? ""} // ← nullのときだけ空文字を使う
+        value={closingDay ?? ""}
         min={1}
         max={31}
         onChange={(e) => setClosingDay(parseInt(e.target.value, 10) || 0)}
       />
-
       <button
         className="btn btn-primary w-100"
         onClick={handleSave}

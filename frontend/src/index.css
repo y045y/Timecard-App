@@ -1,9 +1,9 @@
 :root {
-  font-family: 'Noto Sans JP', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Noto Sans JP", system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
+  color-scheme: light; /*light dark*/
   color: #333; /* 白じゃなく目に優しいダーク文字 */
   background-color: #f3f3f3; /* 全体グレーベース */
 
@@ -25,12 +25,12 @@ a:hover {
 body {
   margin: 0;
   display: flex;
-  flex-direction: column;  /* ← Flexで上下に流すよう修正 */
+  flex-direction: column; /* ← Flexで上下に流すよう修正 */
   min-width: 320px;
   min-height: 100vh;
   background-color: #f3f3f3;
   color: #333;
-  font-family: 'Noto Sans JP', sans-serif;
+  font-family: "Noto Sans JP", sans-serif;
   padding: 1rem;
 }
 
@@ -60,7 +60,7 @@ button:focus-visible {
 .table {
   margin-bottom: 0;
   background-color: #fdfdfd;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   font-size: 14px;
   border-collapse: collapse;
 }

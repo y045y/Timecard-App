@@ -5,6 +5,8 @@ import { useSearchParams } from "react-router-dom";
 import { getJSTDateString } from "../utils/timeFormatter";
 import DailyRow from "../components/DailyRow"; // パスは適宜修正
 
+const API_BASE = import.meta.env.VITE_API_BASE || "";
+
 function getDateRangeForMonth(baseMonth, startDay = 26) {
   const [year, month] = baseMonth.split("-").map(Number);
   const end = new Date(year, month, 25);
@@ -49,8 +51,9 @@ const TimeReportPage = () => {
   const fetchAttendance = async (start, end) => {
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/attendance-records?user_id=${userId}`
+        `${API_BASE}/api/attendance-records?user_id=${userId}`
       );
+
       const sqlRecords = res.data;
 
       const rangeDates = [];
@@ -102,7 +105,7 @@ const TimeReportPage = () => {
   const fetchSummary = async (reportMonth) => {
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/self-reports?month=${reportMonth}&user_id=${userId}`
+        `${API_BASE}/api/self-reports?month=${reportMonth}&user_id=${userId}`
       );
       const record = res.data;
       if (!record || Object.keys(record).length === 0) {
@@ -142,13 +145,11 @@ const TimeReportPage = () => {
 
         const [userRes, settingRes, attendanceRes, summaryRes] =
           await Promise.all([
-            axios.get("http://localhost:5000/api/users"),
-            axios.get("http://localhost:5000/api/settings/closing-day"),
+            axios.get(`${API_BASE}/api/users`),
+            axios.get(`${API_BASE}/api/settings/closing-day`),
+            axios.get(`${API_BASE}/api/attendance-records?user_id=${userId}`),
             axios.get(
-              `http://localhost:5000/api/attendance-records?user_id=${userId}`
-            ),
-            axios.get(
-              `http://localhost:5000/api/self-reports?month=${reportMonth}&user_id=${userId}`
+              `${API_BASE}/api/self-reports?month=${reportMonth}&user_id=${userId}`
             ),
           ]);
 
@@ -294,7 +295,7 @@ const TimeReportPage = () => {
         attendancePayload.find((r) => r.id === 69)
       );
       await axios.put(
-        "http://localhost:5000/api/attendance-records/update-all",
+        `${API_BASE}/api/attendance-records/update-all`,
         attendancePayload
       );
 
@@ -312,10 +313,7 @@ const TimeReportPage = () => {
         note: summary.summaryNote || "",
       };
 
-      await axios.post(
-        "http://localhost:5000/api/self-reports",
-        summaryPayload
-      );
+      await axios.post(`${API_BASE}/api/self-reports`, summaryPayload);
 
       alert("✅ 申請が完了しました！");
 
@@ -329,49 +327,6 @@ const TimeReportPage = () => {
       setIsSubmitting(false);
     }
   };
-
-  // const formatDateWithWeekday = (date) => {
-  //   const d = new Date(date);
-  //   const month = d.getMonth() + 1;
-  //   const day = d.getDate();
-  //   const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
-  //   const weekday = weekdays[d.getDay()];
-  //   return `${month}/${day} (${weekday})`;
-  // };
-
-  // const compactSelectStyle = {
-  //   fontWeight: "bold",
-  //   width: "70px",
-  //   height: "28px", // ← 28 → 24 に変更
-  //   fontSize: "12px",
-  //   padding: "2px 4px",
-  //   margin: "0 auto",
-  // };
-
-  // const freeInputStyle = {
-  //   backgroundColor: "#fff9c4",
-  //   border: "2px solid #007bff",
-  //   fontSize: "12px",
-  //   fontWeight: "bold",
-  //   height: "24px", // ← 高さを縮める
-  //   padding: "2px 4px", // ← paddingも詰める
-  // };
-
-  // const tableCellStyle = {
-  //   padding: "2px 4px", // ← デフォルトより縮小
-  //   verticalAlign: "middle", // ← 高さを中央に寄せる（縦の広がり防止）
-  // };
-  // const compactSelectStyle = useMemo(
-  //   () => ({
-  //     fontWeight: "bold",
-  //     width: "70px",
-  //     height: "28px",
-  //     fontSize: "12px",
-  //     padding: "2px 4px",
-  //     margin: "0 auto",
-  //   }),
-  //   []
-  // );
 
   const freeInputStyle = useMemo(
     () => ({

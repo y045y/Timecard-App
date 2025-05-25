@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
+// ✅ APIベースURL（環境に応じて切り替え）
+const API_BASE = import.meta.env.VITE_API_BASE || "";
+
 const HomePage = ({ setUserId, setIsAdmin }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -9,9 +12,12 @@ const HomePage = ({ setUserId, setIsAdmin }) => {
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/users")
+      .get(`${API_BASE}/api/users`)
       .then((res) => setUsers(res.data))
-      .catch((err) => console.error("❌ ユーザー取得失敗", err))
+      .catch((err) => {
+        console.error("❌ ユーザー取得失敗", err);
+        setUsers([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 

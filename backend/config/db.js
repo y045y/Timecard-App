@@ -1,6 +1,9 @@
 // config/db.js
 require("dotenv").config();
-console.log("✅ DB_SERVER (直接確認):", process.env.DB_SERVER || "環境変数なし");
+console.log(
+  "✅ DB_SERVER (直接確認):",
+  process.env.DB_SERVER || "環境変数なし"
+);
 
 const sql = require("mssql");
 
@@ -10,7 +13,8 @@ const dbConfig = {
   server: process.env.DB_SERVER,
   database: process.env.DB_DATABASE,
   options: {
-    encrypt: false,
+    // encrypt: false,
+    encrypt: true,
     trustServerCertificate: true,
     // instanceName: process.env.DB_INSTANCE,
   },
