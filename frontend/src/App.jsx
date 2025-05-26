@@ -14,7 +14,7 @@ function App() {
     <Router>
       <div className="container" style={{ marginTop: "8px" }}>
         {/* ナビゲーションバー */}
-        <nav className="d-flex justify-content-center gap-3 mb-3">
+        <nav className="d-flex justify-content-center gap-3 mb-2">
           <Link to="/" className="btn btn-outline-primary btn-sm">
             ホーム
           </Link>
