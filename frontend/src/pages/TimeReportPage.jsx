@@ -7,10 +7,31 @@ import DailyRow from "../components/DailyRow"; // パスは適宜修正
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 
-function getDateRangeForMonth(baseMonth, startDay = 26) {
-  const [year, month] = baseMonth.split("-").map(Number);
-  const end = new Date(year, month, 25);
-  const start = new Date(year, month - 1, startDay);
+// function getDateRangeForMonth(baseMonth, startDay = 26) {
+//   const [year, month] = baseMonth.split("-").map(Number);
+//   const end = new Date(year, month, 25);
+//   const start = new Date(year, month - 1, startDay);
+//   return { start, end };
+// }
+function getDateRangeForMonth(
+  now = new Date(),
+  startDay = 26,
+  closingDay = 25
+) {
+  const current = new Date(now);
+  const year = current.getFullYear();
+  const month = current.getMonth();
+
+  const start =
+    current.getDate() > closingDay
+      ? new Date(year, month, startDay)
+      : new Date(year, month - 1, startDay);
+
+  const end =
+    current.getDate() > closingDay
+      ? new Date(year, month + 1, closingDay)
+      : new Date(year, month, closingDay);
+
   return { start, end };
 }
 
@@ -19,7 +40,10 @@ const TimeReportPage = () => {
   const userId = parseInt(searchParams.get("user_id"), 10);
   const [userName, setUserName] = useState("");
 
+  // 🔽 勤怠データ（各日ごとの詳細）
   const [attendanceData, setAttendanceData] = useState([]);
+
+  // 🔽 月間サマリー（自己申告欄）
   const [summary, setSummary] = useState({
     holidayWorkCount: "0.0",
     holidayWorkHours: "0.0",
@@ -30,22 +54,51 @@ const TimeReportPage = () => {
     summaryNote: "",
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // 🔽 締め日・送信状態
   const [closingStartDay, setClosingStartDay] = useState(26);
-  const firstRowRef = useRef(null); // ← 最初の行への参照
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 🔽 現在時刻（表示用）
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // 🔽 スクロール用参照
+  const firstRowRef = useRef(null); // ← 最初の行（旧仕様）
+  const todayRef = useRef(null); // ← 今日の行にスクロールする用
+
+  // 🔽 今日の日付（YYYY-MM-DD 文字列）
+  const todayDateStr = getJSTDateString(new Date());
+
+  // ⏱️ 現在時刻の更新
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // 🔽 初回マウント時に「今日の行」にスクロール
+  useEffect(() => {
+    if (todayRef.current) {
+      todayRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, []);
 
   const getCurrentReportMonth = () => {
     const now = new Date();
-    let year = now.getFullYear();
-    let month = now.getMonth();
-    if (now.getDate() <= 25) {
-      month -= 1;
-      if (month < 0) {
-        month = 11;
-        year -= 1;
-      }
-    }
-    return `${year}-${String(month + 1).padStart(2, "0")}`;
+    const closingDay = 25;
+    const year = now.getFullYear();
+    const month = now.getMonth();
+
+    // 26日〜月末 → 今月、1日〜25日 → 前月をベースとする
+    const target =
+      now.getDate() > closingDay
+        ? new Date(year, month)
+        : new Date(year, month - 1);
+    return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}`;
   };
 
   const fetchAttendance = async (start, end) => {
@@ -158,8 +211,18 @@ const TimeReportPage = () => {
 
         const startDay = parseInt(settingRes.data.closing_start_day, 10);
         setClosingStartDay(startDay);
-        const { start, end } = getDateRangeForMonth(reportMonth, startDay);
+        // const { start, end } = getDateRangeForMonth(reportMonth, startDay);
+        const { start, end } = getDateRangeForMonth(
+          new Date(),
+          closingStartDay,
+          closingStartDay - 1
+        );
 
+        const today = getJSTDateString(new Date()); // ← ✅ 追加！
+
+        console.log("📅 reportMonth:", reportMonth);
+        console.log("📅 範囲:", start, "→", end);
+        console.log("📅 today:", today);
         // 勤怠データ整形
         const updatedData = (function () {
           const rangeDates = [];
@@ -317,7 +380,13 @@ const TimeReportPage = () => {
 
       alert("✅ 申請が完了しました！");
 
-      const { start, end } = getDateRangeForMonth(reportMonth, closingStartDay);
+      // const { start, end } = getDateRangeForMonth(reportMonth, closingStartDay);
+      const { start, end } = getDateRangeForMonth(
+        new Date(),
+        closingStartDay,
+        closingStartDay - 1
+      );
+
       await fetchAttendance(start, end);
       await fetchSummary(reportMonth);
     } catch (err) {
@@ -358,12 +427,33 @@ const TimeReportPage = () => {
   }
 
   return (
-    <div className="container mt-5">
-      <h5 className="text-center text-secondary mb-4">ユーザー: {userName}</h5>
+    <div className="container" style={{ marginTop: "8px" }}>
+      {/* ユーザー名 */}
+      <h5
+        className="text-center text-secondary mb-1"
+        style={{ fontSize: "14px" }}
+      >
+        ユーザー: {userName}
+      </h5>
 
+      {/* 現在日時 */}
+      <div
+        className="text-center mb-1 text-muted"
+        style={{ fontFamily: "Courier New", fontSize: "13px" }}
+      >
+        {currentTime.toLocaleString("ja-JP")}
+      </div>
+
+      {/* タイトル */}
       <h2
-        className="text-center mb-4"
-        style={{ fontWeight: "bold", borderBottom: "2px solid #007bff" }}
+        className="text-center"
+        style={{
+          fontWeight: "bold",
+          borderBottom: "2px solid #007bff",
+          marginTop: "4px",
+          marginBottom: "12px",
+          fontSize: "16px",
+        }}
       >
         勤怠入力画面（{closingStartDay}日締め）
       </h2>
@@ -380,15 +470,22 @@ const TimeReportPage = () => {
             </tr>
           </thead>
           <tbody>
-            {attendanceData.map((row, index) => (
-              <DailyRow
-                key={index}
-                row={row}
-                index={index}
-                handleChange={handleChange}
-                firstRowRef={firstRowRef}
-              />
-            ))}
+            {attendanceData.map((row, index) => {
+              const rowDateStr = getJSTDateString(row.date);
+              const isToday = rowDateStr === todayDateStr;
+
+              return (
+                <DailyRow
+                  key={index}
+                  row={row}
+                  index={index}
+                  handleChange={handleChange}
+                  firstRowRef={firstRowRef}
+                  rowRef={isToday ? todayRef : null} // ✅ 今日だけ ref を渡す
+                  highlight={isToday} // ✅ 今日だけハイライト
+                />
+              );
+            })}
 
             {/* ✅ ここに余白行を追加 */}
             <tr>

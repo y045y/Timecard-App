@@ -29,9 +29,10 @@ const AdminSettingsPage = () => {
     setIsSaving(true);
     setMessage("");
     try {
-      await axios.post("${API_BASE}/api/settings/closing-day", {
+      await axios.post(`${API_BASE}/api/settings/closing-day`, {
         closing_start_day: closingDay,
       });
+
       setMessage("✅ 締め日を保存しました");
       window.location.reload(); // 保存後にリロード
     } catch (err) {

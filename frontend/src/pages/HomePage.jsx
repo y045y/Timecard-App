@@ -52,7 +52,7 @@ const HomePage = ({ setUserId, setIsAdmin }) => {
         className="text-center mb-3 fw-bold text-dark"
         style={{ fontSize: 20 }}
       >
-        勤怠管理システム
+        Timecard
       </h2>
       <h6 className="text-center text-muted mb-4" style={{ fontSize: 14 }}>
         出勤する人を選んでください：

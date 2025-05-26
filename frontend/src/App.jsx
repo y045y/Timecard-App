@@ -12,14 +12,17 @@ function App() {
 
   return (
     <Router>
-      <div className="container mt-4">
+      <div className="container" style={{ marginTop: "8px" }}>
         {/* ナビゲーションバー */}
-        <nav className="d-flex justify-content-center gap-3 mb-4">
-          <Link to="/" className="btn btn-outline-primary">
+        <nav className="d-flex justify-content-center gap-3 mb-3">
+          <Link to="/" className="btn btn-outline-primary btn-sm">
             ホーム
           </Link>
           {isAdmin && (
-            <Link to="/admin/attendance" className="btn btn-outline-danger">
+            <Link
+              to="/admin/attendance"
+              className="btn btn-outline-danger btn-sm"
+            >
               勤怠管理（管理者）
             </Link>
           )}
