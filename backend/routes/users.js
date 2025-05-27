@@ -28,10 +28,11 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const user = {
-      id: parseInt(req.params.id),
+      id: parseInt(req.params.id, 10),
       name: req.body.name,
-      is_admin: req.body.is_admin,
+      is_admin: req.body.is_admin ?? 0, // ← fallback（保険）
     };
+
     await UserStore.update(user);
     res.send("User updated");
   } catch (err) {

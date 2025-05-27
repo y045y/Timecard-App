@@ -38,17 +38,25 @@ const TimecardPage = () => {
           r.attendance_date?.startsWith(todayStr)
         );
 
+        // 🔽 ヘルパー関数：HH:mm → Date(JST 1970年1月1日)
+        const parseTimeStringToDate = (timeStr) => {
+          if (!timeStr) return null;
+          const [h, m] = timeStr.split(":").map((s) => parseInt(s, 10));
+          if (isNaN(h) || isNaN(m)) return null;
+          return new Date(1970, 0, 1, h, m);
+        };
+
         if (todayRecord?.start_time && todayRecord?.end_time) {
           setStatus("退勤済み");
-          setStartTime(
-            new Date(`1970-01-01T${todayRecord.start_time}:00+09:00`)
-          );
-          setEndTime(new Date(`1970-01-01T${todayRecord.end_time}:00+09:00`));
+          setStartTime(parseTimeStringToDate(todayRecord.start_time));
+          setEndTime(parseTimeStringToDate(todayRecord.end_time));
         } else if (todayRecord?.start_time) {
           setStatus("出勤中");
-          setStartTime(
-            new Date(`1970-01-01T${todayRecord.start_time}:00+09:00`)
-          );
+          setStartTime(parseTimeStringToDate(todayRecord.start_time));
+        } else {
+          setStatus("未出勤");
+          setStartTime(null);
+          setEndTime(null);
         }
       } catch (err) {
         console.error("❌ データ取得失敗:", err);
@@ -75,6 +83,7 @@ const TimecardPage = () => {
       });
       setStartTime(now);
       setStatus("出勤中");
+      setCurrentTime(new Date()); // ←追加するとリアルタイム更新感UP
     } catch (err) {
       console.error("❌ 出勤打刻失敗:", err);
       alert("出勤打刻に失敗しました");

@@ -1,6 +1,11 @@
 const { poolPromise } = require("../config/db");
 const sql = require("mssql");
 
+/**
+ * SelfReportStore（JST準拠版）
+ * - report_month: "YYYY-MM" 文字列
+ * - 時間は float型で処理（"1.0", "0.5"など）
+ */
 const SelfReportStore = {
   // 全件取得
   async getAll() {
@@ -9,13 +14,13 @@ const SelfReportStore = {
     return result.recordset;
   },
 
-  // 追加（self_reports）
+  // 登録（新規self_reports追加）
   async insert(report) {
     const pool = await poolPromise;
     await pool
       .request()
       .input("user_id", sql.Int, report.user_id)
-      .input("report_month", sql.Char(7), report.report_month)
+      .input("report_month", sql.Char(7), report.report_month) // "YYYY-MM"
       .input("total_overtime_hours", sql.Float, report.totalOvertimeHours || 0)
       .input("total_paid_leave_days", sql.Float, report.totalPaidLeaveDays || 0)
       .input("holiday_work_count", sql.Float, report.holidayWorkCount || 0)
@@ -27,7 +32,8 @@ const SelfReportStore = {
       .input("note", sql.NVarChar(255), report.note || "")
       .execute("sp_InsertSelfReport");
   },
-  // 更新（self_reports）
+
+  // 更新（既存self_reportsの修正）
   async update(report) {
     const pool = await poolPromise;
     await pool
@@ -45,7 +51,7 @@ const SelfReportStore = {
       .execute("sp_UpdateSelfReport");
   },
 
-  // 削除（self_reports）
+  // 削除（ID指定）
   async delete(id) {
     const pool = await poolPromise;
     await pool
@@ -53,16 +59,18 @@ const SelfReportStore = {
       .input("id", sql.Int, id)
       .execute("sp_DeleteSelfReport");
   },
-  // 指定された user_id と report_month のレコードを取得
+
+  // ユーザー＆月指定で1件取得
   async findByUserAndMonth(userId, month) {
     const pool = await poolPromise;
     const result = await pool
       .request()
       .input("user_id", sql.Int, userId)
-      .input("report_month", sql.Char(7), month).query(`
-          SELECT TOP 1 * FROM self_reports
-          WHERE user_id = @user_id AND report_month = @report_month
-        `);
+      .input("report_month", sql.Char(7), month) // "YYYY-MM"
+      .query(`
+        SELECT TOP 1 * FROM self_reports
+        WHERE user_id = @user_id AND report_month = @report_month
+      `);
     return result.recordset[0];
   },
 };

@@ -24,7 +24,7 @@ const HomePage = ({ setUserId, setIsAdmin }) => {
   const handleUserClick = (user) => {
     if (setUserId) setUserId(user.id);
     if (setIsAdmin) setIsAdmin(user.is_admin);
-    navigate(`/timecard?user_id=${user.id}`);
+    navigate(`/timecard?user_id=${user.id}`, { replace: true });
   };
 
   if (loading) {

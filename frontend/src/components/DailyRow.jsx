@@ -61,6 +61,29 @@ const DailyRow = React.memo(
       }),
       []
     );
+    const formatTime = (value) => {
+      if (!value) return "--:--";
+
+      // ISO文字列ならDate変換 → JST補正
+      if (typeof value === "string") {
+        if (value.includes("T")) {
+          const date = new Date(value);
+          const h = String(date.getHours()).padStart(2, "0");
+          const m = String(date.getMinutes()).padStart(2, "0");
+          return `${h}:${m}`;
+        }
+        return value.slice(0, 5); // "08:30" や "08:30:00"
+      }
+
+      // それ以外（Date型など）
+      if (value instanceof Date) {
+        const h = String(value.getHours()).padStart(2, "0");
+        const m = String(value.getMinutes()).padStart(2, "0");
+        return `${h}:${m}`;
+      }
+
+      return "--:--";
+    };
 
     return (
       <>
@@ -78,7 +101,7 @@ const DailyRow = React.memo(
               fontFamily: "Courier New",
             }}
           >
-            {row.startTime || "--:--"}
+            {formatTime(row.startTime)}
           </td>
           <td
             style={{
@@ -87,7 +110,7 @@ const DailyRow = React.memo(
               fontFamily: "Courier New",
             }}
           >
-            {row.endTime || "--:--"}
+            {formatTime(row.endTime)}
           </td>
           <td style={{ backgroundColor, ...tableCellStyle }}>
             <select

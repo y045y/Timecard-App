@@ -52,8 +52,15 @@ const AdminAttendancePage = () => {
         }
       }
 
-      const start = new Date(year, month, closingDay + 1); // ← 🔁 翌日から開始！
-      const end = new Date(year, month + 1, closingDay); // ← 当月の締め日まで
+      // 正：今日が締め日以前なら前月の「締め日翌日」から
+      const start =
+        today.getDate() < closingDay
+          ? new Date(year, month - 1, closingDay + 1)
+          : new Date(year, month, closingDay + 1);
+      const end =
+        today.getDate() < closingDay
+          ? new Date(year, month, closingDay)
+          : new Date(year, month + 1, closingDay);
 
       const dateList = [];
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
