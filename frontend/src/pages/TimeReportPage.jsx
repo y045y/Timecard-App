@@ -7,12 +7,6 @@ import DailyRow from "../components/DailyRow"; // パスは適宜修正
 
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 
-// function getDateRangeForMonth(baseMonth, startDay = 26) {
-//   const [year, month] = baseMonth.split("-").map(Number);
-//   const end = new Date(year, month, 25);
-//   const start = new Date(year, month - 1, startDay);
-//   return { start, end };
-// }
 function getDateRangeForMonth(
   now = new Date(),
   startDay = 26,
@@ -196,27 +190,25 @@ const TimeReportPage = () => {
         setLoading(true);
         const reportMonth = getCurrentReportMonth();
 
-        const [userRes, settingRes, attendanceRes, summaryRes] =
+        const [userRes, periodRes, attendanceRes, summaryRes] =
           await Promise.all([
             axios.get(`${API_BASE}/api/users`),
-            axios.get(`${API_BASE}/api/settings/closing-day`),
+            axios.get(`${API_BASE}/api/settings/closing-period`),
             axios.get(`${API_BASE}/api/attendance-records?user_id=${userId}`),
             axios.get(
               `${API_BASE}/api/self-reports?month=${reportMonth}&user_id=${userId}`
             ),
           ]);
 
+        const start = new Date(
+          `${periodRes.data.closing_start_date}T00:00:00+09:00`
+        );
+        const end = new Date(
+          `${periodRes.data.closing_end_date}T00:00:00+09:00`
+        );
+
         const foundUser = userRes.data.find((u) => u.id === userId);
         setUserName(foundUser?.name || `ユーザーID: ${userId}`);
-
-        const startDay = parseInt(settingRes.data.closing_start_day, 10);
-        setClosingStartDay(startDay);
-        // const { start, end } = getDateRangeForMonth(reportMonth, startDay);
-        const { start, end } = getDateRangeForMonth(
-          new Date(),
-          closingStartDay,
-          closingStartDay - 1
-        );
 
         const today = getJSTDateString(new Date()); // ← ✅ 追加！
 

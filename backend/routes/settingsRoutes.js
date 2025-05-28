@@ -2,32 +2,41 @@ const express = require("express");
 const router = express.Router();
 const SettingsStore = require("../stores/settingsStore");
 
-// 締め開始日を取得
-router.get("/closing-day", async (req, res) => {
+// 締め期間（開始日と終了日）を取得
+router.get("/closing-period", async (req, res) => {
   try {
-    const value = await SettingsStore.get("closing_start_day");
-    const intValue = parseInt(value, 10);
-    res.json({ closing_start_day: isNaN(intValue) ? 26 : intValue });
+    const start = await SettingsStore.get("closing_start_date");
+    const end = await SettingsStore.get("closing_end_date");
+    res.json({
+      closing_start_date: start || null,
+      closing_end_date: end || null,
+    });
   } catch (err) {
-    console.error("❌ 締め日取得エラー:", err);
+    console.error("❌ 締め期間取得エラー:", err);
     res.status(500).send("Server error");
   }
 });
 
-// 締め開始日を更新
-router.post("/closing-day", async (req, res) => {
+// 締め期間（開始日と終了日）を保存
+router.post("/closing-period", async (req, res) => {
   try {
-    const { closing_start_day } = req.body;
-    const day = parseInt(closing_start_day, 10);
+    const { closing_start_date, closing_end_date } = req.body;
 
-    if (!day || day < 1 || day > 31) {
-      return res.status(400).send("Invalid closing_start_day");
+    if (
+      !closing_start_date ||
+      !closing_end_date ||
+      closing_start_date.length !== 10 ||
+      closing_end_date.length !== 10
+    ) {
+      return res.status(400).send("開始日・終了日が不正です");
     }
 
-    await SettingsStore.set("closing_start_day", day.toString());
-    res.send("✅ 締め開始日を更新しました");
+    await SettingsStore.set("closing_start_date", closing_start_date);
+    await SettingsStore.set("closing_end_date", closing_end_date);
+
+    res.send("✅ 締め期間を保存しました");
   } catch (err) {
-    console.error("❌ 締め日更新エラー:", err);
+    console.error("❌ 締め期間保存エラー:", err);
     res.status(500).send("Server error");
   }
 });

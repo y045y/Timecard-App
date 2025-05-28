@@ -4,37 +4,43 @@ import axios from "axios";
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 
 const AdminSettingsPage = () => {
-  const [closingDay, setClosingDay] = useState(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const fetchClosingDay = async () => {
+    const fetchClosingPeriod = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/api/settings/closing-day`);
-        setClosingDay(res.data.closing_start_day);
+        const res = await axios.get(`${API_BASE}/api/settings/closing-period`);
+        setStartDate(res.data.closing_start_date ?? "");
+        setEndDate(res.data.closing_end_date ?? "");
       } catch (err) {
-        console.error("❌ 締め日取得エラー", err);
-        setMessage("締め日の取得に失敗しました");
+        console.error("❌ 締め期間取得エラー", err);
+        setMessage("締め期間の取得に失敗しました");
       }
     };
-    fetchClosingDay();
+    fetchClosingPeriod();
   }, []);
 
   const handleSave = async () => {
-    if (closingDay < 1 || closingDay > 31) {
-      alert("1〜31の範囲で指定してください");
+    if (!startDate || !endDate) {
+      alert("開始日と終了日を入力してください");
       return;
     }
+    if (startDate >= endDate) {
+      alert("終了日は開始日より後にしてください");
+      return;
+    }
+
     setIsSaving(true);
     setMessage("");
     try {
-      await axios.post(`${API_BASE}/api/settings/closing-day`, {
-        closing_start_day: closingDay,
+      await axios.post(`${API_BASE}/api/settings/closing-period`, {
+        closing_start_date: startDate,
+        closing_end_date: endDate,
       });
-
-      setMessage("✅ 締め日を保存しました");
-      window.location.reload(); // 保存後にリロード
+      setMessage("✅ 締め期間を保存しました");
     } catch (err) {
       console.error("❌ 保存エラー", err);
       setMessage("❌ 保存に失敗しました");
@@ -45,18 +51,24 @@ const AdminSettingsPage = () => {
 
   return (
     <div className="container mt-5" style={{ maxWidth: 500 }}>
-      <h3 className="mb-4">締め開始日の設定</h3>
-      <label className="form-label">
-        締め開始日（例：26 → 26日〜翌月25日）
-      </label>
+      <h3 className="mb-4">締め期間の設定</h3>
+
+      <label className="form-label">締め開始日（YYYY-MM-DD）</label>
       <input
-        type="number"
+        type="date"
         className="form-control mb-3"
-        value={closingDay ?? ""}
-        min={1}
-        max={31}
-        onChange={(e) => setClosingDay(parseInt(e.target.value, 10) || 0)}
+        value={startDate}
+        onChange={(e) => setStartDate(e.target.value)}
       />
+
+      <label className="form-label">締め終了日（YYYY-MM-DD）</label>
+      <input
+        type="date"
+        className="form-control mb-4"
+        value={endDate}
+        onChange={(e) => setEndDate(e.target.value)}
+      />
+
       <button
         className="btn btn-primary w-100"
         onClick={handleSave}
@@ -64,6 +76,7 @@ const AdminSettingsPage = () => {
       >
         {isSaving ? "保存中..." : "保存する"}
       </button>
+
       {message && <div className="alert alert-info mt-3">{message}</div>}
     </div>
   );
