@@ -59,6 +59,8 @@ const TimeReportPage = () => {
   const firstRowRef = useRef(null); // ← 最初の行（旧仕様）
   const todayRef = useRef(null); // ← 今日の行にスクロールする用
 
+  const hasScrolledRef = useRef(false);
+
   // 🔽 今日の日付（YYYY-MM-DD 文字列）
   const todayDateStr = getJSTDateString(new Date());
 
@@ -68,15 +70,21 @@ const TimeReportPage = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // 🔽 初回マウント時に「今日の行」にスクロール
   useEffect(() => {
-    if (todayRef.current) {
-      todayRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }
-  }, []);
+    const timeout = setTimeout(() => {
+      if (!hasScrolledRef.current && todayRef.current) {
+        todayRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        hasScrolledRef.current = true;
+      }
+    }, 200); // 描画タイミングを考慮して delay 少し長めに
+
+    return () => clearTimeout(timeout);
+  }, [attendanceData]);
+
+  console.log("💡 todayRef.current", todayRef.current);
 
   const getCurrentReportMonth = () => {
     const now = new Date();
@@ -386,6 +394,7 @@ const TimeReportPage = () => {
       alert("❌ 申請に失敗しました");
     } finally {
       setIsSubmitting(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -652,8 +661,46 @@ const TimeReportPage = () => {
         className="position-fixed bottom-0 start-0 end-0 bg-white border-top text-center p-3"
         style={{ zIndex: 999 }}
       >
-        <button className="btn btn-primary w-75" onClick={handleSubmit}>
+        <button
+          className="btn btn-primary"
+          style={{ width: "60%", minWidth: "160px" }}
+          onClick={handleSubmit}
+        >
           【更新】
+        </button>
+      </div>
+      {/* ⬇ ここにスクロールボタンを追加 */}
+      <div
+        className="position-fixed end-0 bottom-0 p-3 d-flex flex-column gap-2"
+        style={{ zIndex: 1000 }}
+      >
+        <button
+          className="btn btn-outline-primary btn-sm"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        >
+          ⬆ 上へ
+        </button>
+        <button
+          className="btn btn-outline-success btn-sm"
+          onClick={() =>
+            todayRef.current?.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            })
+          }
+        >
+          🎯 今日
+        </button>
+        <button
+          className="btn btn-outline-secondary btn-sm"
+          onClick={() =>
+            window.scrollTo({
+              top: document.body.scrollHeight,
+              behavior: "smooth",
+            })
+          }
+        >
+          ⬇ 下へ
         </button>
       </div>
     </div>
