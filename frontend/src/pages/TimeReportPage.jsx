@@ -49,7 +49,7 @@ const TimeReportPage = () => {
   });
 
   // 🔽 締め日・送信状態
-  const [closingStartDay, setClosingStartDay] = useState(26);
+  const [closingStartDay, _setClosingStartDay] = useState(26);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 🔽 現在時刻（表示用）
@@ -59,8 +59,6 @@ const TimeReportPage = () => {
   const firstRowRef = useRef(null); // ← 最初の行（旧仕様）
   const todayRef = useRef(null); // ← 今日の行にスクロールする用
 
-  const hasScrolledRef = useRef(false);
-
   // 🔽 今日の日付（YYYY-MM-DD 文字列）
   const todayDateStr = getJSTDateString(new Date());
 
@@ -69,22 +67,6 @@ const TimeReportPage = () => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (!hasScrolledRef.current && todayRef.current) {
-        todayRef.current.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-        hasScrolledRef.current = true;
-      }
-    }, 200); // 描画タイミングを考慮して delay 少し長めに
-
-    return () => clearTimeout(timeout);
-  }, [attendanceData]);
-
-  console.log("💡 todayRef.current", todayRef.current);
 
   const getCurrentReportMonth = () => {
     const now = new Date();
@@ -208,11 +190,22 @@ const TimeReportPage = () => {
             ),
           ]);
 
-        const start = new Date(
-          `${periodRes.data.closing_start_date}T00:00:00+09:00`
-        );
-        const end = new Date(
-          `${periodRes.data.closing_end_date}T00:00:00+09:00`
+        const startStr = periodRes.data.closing_start_date;
+        const endStr = periodRes.data.closing_end_date;
+
+        if (!startStr || !endStr) {
+          console.error("❌ 締め期間が未設定です");
+          alert("❌ 締め期間が設定されていません。管理者に連絡してください。");
+          setLoading(false);
+          return;
+        }
+
+        const start = new Date(`${startStr}T00:00:00+09:00`);
+        const end = new Date(`${endStr}T00:00:00+09:00`);
+        console.log("📅 今日:", todayDateStr);
+        console.log(
+          "📅 勤怠データ日付:",
+          attendanceData.map((d) => getJSTDateString(d.date))
         );
 
         const foundUser = userRes.data.find((u) => u.id === userId);
@@ -482,8 +475,8 @@ const TimeReportPage = () => {
                   index={index}
                   handleChange={handleChange}
                   firstRowRef={firstRowRef}
-                  rowRef={isToday ? todayRef : null} // ✅ 今日だけ ref を渡す
                   highlight={isToday} // ✅ 今日だけハイライト
+                  refProp={isToday ? todayRef : null}
                 />
               );
             })}
@@ -691,6 +684,7 @@ const TimeReportPage = () => {
         >
           🎯 今日
         </button>
+
         <button
           className="btn btn-outline-secondary btn-sm"
           onClick={() =>

@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { isHoliday } from "@holiday-jp/holiday_jp";
 
 const DailyRow = React.memo(
-  ({ row, index, handleChange, firstRowRef, rowRef, highlight }) => {
+  ({ row, index, handleChange, firstRowRef, refProp, rowRef, highlight }) => {
     const date = new Date(row.date);
     const weekday = date.getDay();
 
@@ -153,6 +153,7 @@ const DailyRow = React.memo(
               placeholder="備考を入力"
               value={row.note}
               onChange={(e) => handleChange(index, "note", e.target.value)}
+              ref={refProp} // ← ✅ ここを追加！
             />
           </td>
         </tr>
