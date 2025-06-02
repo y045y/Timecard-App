@@ -664,17 +664,24 @@ const TimeReportPage = () => {
       </div>
       {/* ⬇ ここにスクロールボタンを追加 */}
       <div
-        className="position-fixed end-0 bottom-0 p-3 d-flex flex-column gap-2"
-        style={{ zIndex: 1000 }}
+        style={{
+          position: "fixed",
+          right: "16px",
+          bottom: "80px", // 更新ボタンとかぶらないように少し上
+          zIndex: 1050,
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+        }}
       >
         <button
-          className="btn btn-outline-primary btn-sm"
+          className="btn btn-outline-primary"
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         >
-          ⬆ 上へ
+          ⬆
         </button>
         <button
-          className="btn btn-outline-success btn-sm"
+          className="btn btn-outline-success"
           onClick={() =>
             todayRef.current?.scrollIntoView({
               behavior: "smooth",
@@ -682,11 +689,10 @@ const TimeReportPage = () => {
             })
           }
         >
-          🎯 今日
+          🎯
         </button>
-
         <button
-          className="btn btn-outline-secondary btn-sm"
+          className="btn btn-outline-secondary"
           onClick={() =>
             window.scrollTo({
               top: document.body.scrollHeight,
@@ -694,7 +700,7 @@ const TimeReportPage = () => {
             })
           }
         >
-          ⬇ 下へ
+          ⬇
         </button>
       </div>
     </div>
