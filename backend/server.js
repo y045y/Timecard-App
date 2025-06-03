@@ -12,6 +12,8 @@ const timeReportRoutes = require("./routes/timeReports");
 const settingsRoutes = require("./routes/settingsRoutes");
 
 const app = express();
+
+const healthRoutes = require("./routes/health");
 const PORT = process.env.PORT || 5000;
 
 // ✅ ミドルウェア
@@ -25,6 +27,7 @@ app.use("/api/self-reports", selfReportRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/time-reports", timeReportRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api", healthRoutes);
 
 // ✅ 静的ファイル（React dist を backend 内に含める構成）
 const distPath = path.join(__dirname, "dist");
